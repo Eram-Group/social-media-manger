@@ -36,13 +36,13 @@ export default function Inbox() {
   const assign = (who: string) => active && setConvos((cs) => cs.map((c) => (c.id === active.id ? { ...c, assignee: who } : c)));
 
   return (
-    <div className="flex h-[calc(100vh-7rem)] min-h-[560px] flex-col gap-4">
+    <div className="flex min-h-[560px] flex-col gap-4 lg:h-[calc(100vh-7rem)]">
       <SectionTitle title="Inbox" subtitle="Comments, messages and mentions across all platforms — reply, assign and resolve." />
 
-      {/* 3-pane workspace fills the remaining height (panes scroll internally) */}
+      {/* 3-pane workspace — stacks on mobile, fills height on desktop (panes scroll internally) */}
       <div className="grid min-h-0 flex-1 grid-cols-1 gap-6 lg:grid-cols-4">
         {/* Conversation list */}
-        <DemoCard className="flex flex-col overflow-hidden p-0 lg:col-span-1">
+        <DemoCard className="flex max-h-[60vh] flex-col overflow-hidden p-0 lg:max-h-none lg:col-span-1">
           <div className="flex gap-1 border-b border-neutral-200 p-2">
             {FILTERS.map((f) => (
               <button key={f.key} onClick={() => setFilter(f.key)}
@@ -71,7 +71,7 @@ export default function Inbox() {
         </DemoCard>
 
         {/* Thread */}
-        <DemoCard className="flex flex-col overflow-hidden p-0 lg:col-span-2">
+        <DemoCard className="flex min-h-[70vh] flex-col overflow-hidden p-0 lg:min-h-0 lg:col-span-2">
           {active ? (
             <>
               <div className="flex items-center justify-between border-b border-neutral-200 p-3">
