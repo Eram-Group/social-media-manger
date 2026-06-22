@@ -1,0 +1,393 @@
+import { useState } from 'react';
+import { AnimatePresence } from 'framer-motion';
+import { useParams, Link, useNavigate } from 'react-router-dom';
+import {
+  ResponsiveContainer, AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
+  XAxis, YAxis, Tooltip, CartesianGrid,
+} from 'recharts';
+import { ArrowLeft, Eye, TrendingUp, Megaphone, Trash2, Pencil, Heart, Send, MessageCircle, Ban, CornerDownRight, ShieldCheck, EyeOff, RotateCcw, Smartphone, X, Layers, Share2, Bookmark, MousePointerClick, Users, Play, Clock } from 'lucide-react';
+import { Button } from '@UI/index';
+import { cn } from '@/shadecn/lib/utils';
+import { DemoCard, SectionTitle, StatusPill, PlatformChip, formatFollowers, CHART_COLORS } from '../_components/ui';
+import { usePosts } from '../_data/posts-store';
+import { getPostAnalytics, IPost, TPostStatus } from '../_data/posts';
+import { getPlatform, platformChartColor, TPlatformId } from '../_data/platforms';
+import PostMedia from '../_components/PostMedia';
+import PreviewCarousel from '../_components/PreviewCarousel';
+import { Backdrop, ModalPanel } from '../_components/motion';
+import { EPCC_ROUTES } from '../routes';
+
+const tone: Record<TPostStatus, 'success' | 'info' | 'caution'> = { published: 'success', scheduled: 'info', draft: 'caution' };
+const REACTIONS = [
+  { key: 'like', emoji: '👍', label: 'Like', w: 0.55 },
+  { key: 'love', emoji: '❤️', label: 'Love', w: 0.25 },
+  { key: 'celebrate', emoji: '🎉', label: 'Celebrate', w: 0.1 },
+  { key: 'insightful', emoji: '💡', label: 'Insightful', w: 0.07 },
+  { key: 'support', emoji: '🤝', label: 'Support', w: 0.03 },
+];
+interface IReply { id: string; text: string; time: string; likes: number; liked?: boolean }
+interface IComment { id: string; name: string; platform: TPlatformId; text: string; time: string; likes: number; liked?: boolean; replies: IReply[] }
+const SEED_COMMENTS: IComment[] = [
+  { id: 'c1', name: 'Khalid Al-Dossari', platform: 'instagram', text: 'Excellent initiative — looking forward to attending! 👏', time: '2h', likes: 12, replies: [{ id: 'r0', text: 'Thank you Khalid! See you there 🙌', time: '1h', likes: 5 }] },
+  { id: 'c2', name: 'Noura Al-Harbi', platform: 'x', text: 'How can our SME register as an exhibitor?', time: '3h', likes: 4, replies: [] },
+  { id: 'c3', name: 'Faisal Qahtani', platform: 'linkedin', text: 'Great to see the Chamber leading on Vision 2030.', time: '5h', likes: 21, replies: [] },
+  { id: 'c4', name: 'Mona Al-Shamri', platform: 'facebook', text: 'Is this open to non-members too?', time: '6h', likes: 3, replies: [] },
+  { id: 'c5', name: 'Yousef Al-Otaibi', platform: 'tiktok', text: 'More behind-the-scenes content please 🔥', time: '8h', likes: 34, replies: [] },
+  { id: 'c6', name: 'Reem Al-Harbi', platform: 'instagram', text: 'Will the sessions be recorded?', time: '9h', likes: 7, replies: [] },
+  { id: 'c7', name: 'Abdullah Al-Shehri', platform: 'linkedin', text: 'Fantastic to see this level of engagement.', time: '11h', likes: 18, replies: [] },
+];
+
+export default function PostDetail() {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const { posts, deletePost } = usePosts();
+  const post = posts.find((p) => p.id === id);
+
+  // Comments only come from the platforms this post was actually published on.
+  const [comments, setComments] = useState<IComment[]>(() =>
+    SEED_COMMENTS.map((c, i) => ({
+      ...c,
+      platform: post && post.platforms.length ? post.platforms[i % post.platforms.length] : c.platform,
+    })),
+  );
+  const [draft, setDraft] = useState('');
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [blocked, setBlocked] = useState<string[]>([]);
+  const [role, setRole] = useState<'manager' | 'viewer'>('manager');
+  const [commentPlatform, setCommentPlatform] = useState<'all' | TPlatformId>('all');
+  const [commentSort, setCommentSort] = useState<'new' | 'top'>('new');
+  const [replyingTo, setReplyingTo] = useState<string | null>(null);
+  const [replyDraft, setReplyDraft] = useState('');
+
+  if (!post) {
+    return (
+      <div className="flex flex-col items-center gap-4 py-20 text-center">
+        <p className="text-neutral-600">This post no longer exists.</p>
+        <Link to={EPCC_ROUTES.POSTS} className="text-sm font-medium text-primary-800 hover:underline">← Back to Posts</Link>
+      </div>
+    );
+  }
+
+  const a = getPostAnalytics(post);
+  const curve = a.reachCurve;
+  const engagement = [{ name: 'Likes', value: a.likes }, { name: 'Comments', value: a.comments }, { name: 'Shares', value: a.shares }, { name: 'Saves', value: a.saves }];
+  const reactionData = REACTIONS.map((r) => ({ ...r, value: Math.max(1, Math.round(a.likes * r.w)) }));
+  const totalReactions = reactionData.reduce((s, r) => s + r.value, 0);
+
+  const canModerate = role === 'manager';
+  const shownComments = comments
+    .filter((c) => commentPlatform === 'all' || c.platform === commentPlatform)
+    .slice()
+    .sort((x, y) => (commentSort === 'top' ? y.likes - x.likes : 0));
+  const addComment = () => {
+    const t = draft.trim(); if (!t) return;
+    setComments((c) => [{ id: `c_${c.length}_${t.length}`, name: 'EP Chamber', platform: commentPlatform === 'all' ? (post.platforms[0] ?? 'x') : commentPlatform, text: t, time: 'now', likes: 0, replies: [] }, ...c]);
+    setDraft('');
+  };
+  const addReply = (cid: string) => {
+    const t = replyDraft.trim(); if (!t) return;
+    setComments((cs) => cs.map((c) => (c.id === cid ? { ...c, replies: [...c.replies, { id: `r_${c.replies.length}_${t.length}`, text: t, time: 'now', likes: 0 }] } : c)));
+    setReplyDraft(''); setReplyingTo(null);
+  };
+  const deleteComment = (cid: string) => setComments((cs) => cs.filter((c) => c.id !== cid));
+  const deleteReply = (cid: string, rid: string) => setComments((cs) => cs.map((c) => (c.id === cid ? { ...c, replies: c.replies.filter((r) => r.id !== rid) } : c)));
+  const toggleBlock = (name: string) => setBlocked((b) => (b.includes(name) ? b.filter((x) => x !== name) : [...b, name]));
+  const likeComment = (cid: string) => canModerate && setComments((cs) => cs.map((c) => (c.id === cid ? { ...c, liked: !c.liked, likes: c.likes + (c.liked ? -1 : 1) } : c)));
+  const likeReply = (cid: string, rid: string) => canModerate && setComments((cs) => cs.map((c) => (c.id === cid ? { ...c, replies: c.replies.map((r) => (r.id === rid ? { ...r, liked: !r.liked, likes: r.likes + (r.liked ? -1 : 1) } : r)) } : c)));
+
+  return (
+    <div className="flex flex-col gap-6">
+      {/* Header */}
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <button onClick={() => navigate(EPCC_ROUTES.POSTS)} className="flex h-9 w-9 items-center justify-center rounded-lg border border-neutral-300 text-neutral-700 hover:bg-neutral-100"><ArrowLeft size={16} /></button>
+          <SectionTitle title="Post analytics" subtitle={`${post.date} · ${post.time}`} />
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {post.platforms.length > 0 && <button onClick={() => setPreviewOpen(true)} className="flex items-center gap-2 rounded-lg bg-primary-800 px-4 py-2 text-sm font-medium text-white hover:bg-primary-900"><Smartphone size={15} /> Live preview</button>}
+          {post.status !== 'published' && <Link to={EPCC_ROUTES.POSTS} className="flex items-center gap-2 rounded-lg border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-800 hover:bg-neutral-100"><Pencil size={15} /> Manage</Link>}
+          <Link to={`${EPCC_ROUTES.PROMOTION}?post=${post.id}`} className="flex items-center gap-2 rounded-lg bg-secondary-200 px-4 py-2 text-sm font-medium text-primary-900 hover:shadow-1"><Megaphone size={15} /> Promote</Link>
+          <button onClick={() => { deletePost(post.id); navigate(EPCC_ROUTES.POSTS); }} className="flex items-center gap-2 rounded-lg bg-text-red/5 px-4 py-2 text-sm font-medium text-text-red hover:bg-text-red/10"><Trash2 size={15} /> Delete</button>
+        </div>
+      </div>
+
+      {/* Post hero */}
+      <DemoCard className="flex flex-col gap-5 lg:flex-row">
+        {(post.video || post.media?.length) ? <div className="lg:w-[44%] lg:shrink-0"><PostMedia post={post} /></div> : null}
+        <div className="flex flex-1 flex-col gap-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <StatusPill tone={tone[post.status]}>{post.status}</StatusPill>
+            {post.format && <span className="flex items-center gap-1 rounded-full bg-neutral-100 px-2 py-0.5 text-xs font-medium capitalize text-neutral-600"><Layers size={11} /> {post.format}</span>}
+            {post.campaign && <StatusPill tone="info">▣ {post.campaign}</StatusPill>}
+          </div>
+          <p className="whitespace-pre-line text-base leading-relaxed text-neutral-900">{post.content}</p>
+          <div className="mt-auto flex flex-wrap gap-1.5">
+            {post.platforms.map((pl) => <span key={pl} className="flex items-center gap-1.5 rounded-full border border-neutral-200 px-2 py-1 text-xs"><PlatformChip platform={pl} /> {getPlatform(pl).name}</span>)}
+          </div>
+        </div>
+      </DemoCard>
+
+      {!a.published ? (
+        <DemoCard className="py-12 text-center text-sm text-neutral-600">This post is <span className="font-medium">{post.status}</span> — full analytics will appear once it's published.</DemoCard>
+      ) : (
+        <>
+          {/* Primary KPIs */}
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+            <BigStat icon={Eye} label="Reach" value={formatFollowers(a.reach)} delta={11.2} tint="bg-primary-100 text-primary-800" />
+            <BigStat icon={TrendingUp} label="Impressions" value={formatFollowers(a.impressions)} delta={9.4} tint="bg-[#E0ECFF] text-[#2563EB]" />
+            <BigStat icon={Heart} label="Engagement rate" value={`${a.engagementRate}%`} delta={0.6} tint="bg-[#FCE7F3] text-[#DB2777]" sub={`vs ${ACCOUNT_AVG_ENG}% account avg`} />
+            <BigStat icon={Send} label="New follows" value={`+${a.follows}`} delta={6.1} tint="bg-warnings-successBg text-warnings-success" />
+          </div>
+          {/* Secondary metrics — icon tiles */}
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <Tile icon={Heart} tint="bg-[#FCE7F3] text-[#DB2777]" label="Likes" value={formatFollowers(a.likes)} />
+            <Tile icon={MessageCircle} tint="bg-[#E0ECFF] text-[#2563EB]" label="Comments" value={`${a.comments}`} />
+            <Tile icon={Share2} tint="bg-[#EDE9FE] text-[#7C3AED]" label="Shares" value={`${a.shares}`} />
+            <Tile icon={Bookmark} tint="bg-[#FEF3C7] text-[#D97706]" label="Saves" value={`${a.saves}`} />
+            <Tile icon={MousePointerClick} tint="bg-[#DCFCE7] text-[#16A34A]" label="Link clicks" value={formatFollowers(a.clicks)} />
+            <Tile icon={Users} tint="bg-[#E0F2FE] text-[#0284C7]" label="Profile visits" value={formatFollowers(a.profileVisits)} />
+            <Tile icon={Play} tint="bg-[#FEE2E2] text-[#DC2626]" label="Video views" value={formatFollowers(a.videoViews)} />
+            <Tile icon={Clock} tint="bg-neutral-100 text-neutral-600" label="Avg. watch" value={a.avgWatch} />
+          </div>
+
+          {/* charts */}
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+            <DemoCard className="lg:col-span-2">
+              <SectionTitle title="Reach & impressions" subtitle="First 14 days" />
+              <div className="mt-4 h-64"><ResponsiveContainer width="100%" height="100%"><AreaChart data={curve} margin={{ left: -18, top: 8 }}>
+                <defs>
+                  <linearGradient id="pdReach" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#025FCC" stopOpacity={0.35} /><stop offset="100%" stopColor="#025FCC" stopOpacity={0} /></linearGradient>
+                  <linearGradient id="pdImp" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#00A87E" stopOpacity={0.2} /><stop offset="100%" stopColor="#00A87E" stopOpacity={0} /></linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#E3E3E3" /><XAxis dataKey="day" tick={{ fontSize: 11, fill: '#757575' }} /><YAxis tick={{ fontSize: 11, fill: '#757575' }} tickFormatter={(v) => formatFollowers(v)} /><Tooltip formatter={(v: number) => formatFollowers(v)} />
+                <Area type="monotone" dataKey="impressions" name="Impressions" stroke="#00A87E" strokeWidth={2} fill="url(#pdImp)" />
+                <Area type="monotone" dataKey="reach" name="Reach" stroke="#025FCC" strokeWidth={2} fill="url(#pdReach)" />
+              </AreaChart></ResponsiveContainer></div>
+            </DemoCard>
+            <DemoCard>
+              <SectionTitle title="Engagement mix" />
+              <div className="mt-2 h-52"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={engagement} dataKey="value" nameKey="name" innerRadius={45} outerRadius={75} paddingAngle={3}>{engagement.map((_, i) => <Cell key={i} fill={CHART_COLORS[i]} />)}</Pie><Tooltip /></PieChart></ResponsiveContainer></div>
+              <div className="flex flex-wrap justify-center gap-x-4 gap-y-1 text-xs text-neutral-700">{engagement.map((e, i) => <span key={e.name} className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full" style={{ background: CHART_COLORS[i] }} /> {e.name}</span>)}</div>
+            </DemoCard>
+          </div>
+
+          {/* reactions + reach by platform */}
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+            <DemoCard>
+              <SectionTitle title="Reactions" subtitle={`${formatFollowers(totalReactions)} total`} />
+              <div className="mt-3 h-40"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={reactionData} dataKey="value" innerRadius={38} outerRadius={62} paddingAngle={2}>{reactionData.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}</Pie><Tooltip /></PieChart></ResponsiveContainer></div>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {reactionData.map((r) => (
+                  <span key={r.key} className="flex items-center gap-1 rounded-full border border-neutral-200 px-2.5 py-1 text-sm text-neutral-600">
+                    <span>{r.emoji}</span> {formatFollowers(r.value)}
+                  </span>
+                ))}
+              </div>
+            </DemoCard>
+            <DemoCard>
+              <SectionTitle title="Traffic sources" subtitle="Where reach came from" />
+              <div className="mt-4 flex flex-col gap-2.5">
+                {a.trafficSources.map((s) => {
+                  const pct = Math.round((s.value / a.reach) * 100);
+                  return (
+                    <div key={s.name}>
+                      <div className="mb-1 flex justify-between text-sm"><span className="text-neutral-700">{s.name}</span><span className="font-medium text-neutral-800">{pct}%</span></div>
+                      <div className="h-2 w-full rounded-full bg-neutral-200"><div className="h-2 rounded-full bg-primary-800" style={{ width: `${pct}%` }} /></div>
+                    </div>
+                  );
+                })}
+              </div>
+            </DemoCard>
+            <DemoCard>
+              <SectionTitle title="Reach by platform" />
+              <div className="mt-4 h-56"><ResponsiveContainer width="100%" height="100%"><BarChart data={a.perPlatform.map((pp) => ({ name: getPlatform(pp.platform).name, reach: pp.reach }))} margin={{ left: -10 }}><CartesianGrid strokeDasharray="3 3" stroke="#E3E3E3" /><XAxis dataKey="name" tick={{ fontSize: 11, fill: '#757575' }} /><YAxis tick={{ fontSize: 11, fill: '#757575' }} tickFormatter={(v) => formatFollowers(v)} /><Tooltip formatter={(v: number) => formatFollowers(v)} /><Bar dataKey="reach" radius={[6, 6, 0, 0]}>{a.perPlatform.map((pp) => <Cell key={pp.platform} fill={platformChartColor(pp.platform)} />)}</Bar></BarChart></ResponsiveContainer></div>
+            </DemoCard>
+          </div>
+
+          {/* audience demographics + engagement by hour */}
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+            <DemoCard>
+              <SectionTitle title="Audience age" subtitle="Who this post reached" />
+              <div className="mt-4 h-52"><ResponsiveContainer width="100%" height="100%"><BarChart data={a.age} margin={{ left: -22 }}><CartesianGrid strokeDasharray="3 3" stroke="#E3E3E3" /><XAxis dataKey="label" tick={{ fontSize: 11, fill: '#757575' }} /><YAxis tick={{ fontSize: 11, fill: '#757575' }} tickFormatter={(v) => `${v}%`} /><Tooltip formatter={(v: number) => `${v}%`} /><Bar dataKey="value" radius={[6, 6, 0, 0]} fill="#025FCC" /></BarChart></ResponsiveContainer></div>
+            </DemoCard>
+            <DemoCard>
+              <SectionTitle title="Gender split" />
+              <div className="mt-2 h-40"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={a.gender} dataKey="value" nameKey="label" innerRadius={42} outerRadius={68} paddingAngle={3}>{a.gender.map((_, i) => <Cell key={i} fill={['#025FCC', '#DB2777'][i]} />)}</Pie><Tooltip formatter={(v: number) => `${v}%`} /></PieChart></ResponsiveContainer></div>
+              <div className="flex justify-center gap-4 text-xs text-neutral-700">{a.gender.map((g, i) => <span key={g.label} className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full" style={{ background: ['#025FCC', '#DB2777'][i] }} /> {g.label} {g.value}%</span>)}</div>
+            </DemoCard>
+            <DemoCard>
+              <SectionTitle title="Engagement by hour" subtitle={`Peaks around ${a.topHour}`} />
+              <div className="mt-4 h-52"><ResponsiveContainer width="100%" height="100%"><AreaChart data={a.hourly} margin={{ left: -24, top: 8 }}><defs><linearGradient id="pdHour" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#7C3AED" stopOpacity={0.35} /><stop offset="100%" stopColor="#7C3AED" stopOpacity={0} /></linearGradient></defs><CartesianGrid strokeDasharray="3 3" stroke="#E3E3E3" /><XAxis dataKey="hour" tick={{ fontSize: 10, fill: '#757575' }} interval={1} /><YAxis tick={{ fontSize: 11, fill: '#757575' }} /><Tooltip /><Area type="monotone" dataKey="engagements" stroke="#7C3AED" strokeWidth={2} fill="url(#pdHour)" /></AreaChart></ResponsiveContainer></div>
+            </DemoCard>
+          </div>
+
+          {/* comments + per-platform table */}
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+            <DemoCard className="lg:col-span-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <SectionTitle title="Comments" subtitle={`${comments.length} comments · ${blocked.length} blocked`} />
+                {/* access role */}
+                <div className="flex items-center gap-0.5 rounded-lg border border-neutral-200 p-0.5">
+                  {(['manager', 'viewer'] as const).map((r) => (
+                    <button key={r} onClick={() => setRole(r)} title={r === 'manager' ? 'Full moderation access' : 'Read-only'}
+                      className={cn('flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium capitalize transition-colors', role === r ? 'bg-primary-800 text-white' : 'text-neutral-600 hover:bg-neutral-100')}>
+                      {r === 'manager' ? <ShieldCheck size={12} /> : <Eye size={12} />} {r}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* platform filter + sort */}
+              <div className="mt-3 flex flex-wrap items-center gap-1.5">
+                <button onClick={() => setCommentPlatform('all')} className={cn('rounded-full border px-2.5 py-1 text-xs', commentPlatform === 'all' ? 'border-primary-300 bg-secondary-200 text-primary-900' : 'border-neutral-300 text-neutral-600 hover:bg-neutral-100')}>All</button>
+                {post.platforms.map((pl) => (
+                  <button key={pl} onClick={() => setCommentPlatform(pl)} className={cn('flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs', commentPlatform === pl ? 'border-primary-300 bg-secondary-200 text-primary-900' : 'border-neutral-300 text-neutral-600 hover:bg-neutral-100')}>
+                    <PlatformChip platform={pl} /> {getPlatform(pl).name}
+                  </button>
+                ))}
+                <div className="ml-auto flex items-center gap-0.5 rounded-lg border border-neutral-200 p-0.5">
+                  {(['new', 'top'] as const).map((s) => (
+                    <button key={s} onClick={() => setCommentSort(s)} className={cn('rounded-md px-2 py-1 text-xs font-medium', commentSort === s ? 'bg-primary-800 text-white' : 'text-neutral-600 hover:bg-neutral-100')}>{s === 'new' ? 'Newest' : 'Top'}</button>
+                  ))}
+                </div>
+              </div>
+
+              {/* add comment (manager only) */}
+              {canModerate ? (
+                <div className="mt-3 flex items-center gap-2">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary-800 text-xs font-semibold text-white">EP</span>
+                  <input value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addComment()} placeholder="Comment as the Chamber…"
+                    className="min-h-9 flex-1 rounded-lg px-3 py-1.5 text-sm shadow-6 outline outline-1 outline-neutral-200 focus-visible:outline-2 focus-visible:outline-primary-300" />
+                  <button onClick={addComment} disabled={!draft.trim()} className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary-800 text-white disabled:opacity-50"><Send size={15} /></button>
+                </div>
+              ) : (
+                <p className="mt-3 rounded-lg bg-neutral-100 p-2.5 text-xs text-neutral-500">Viewer access — moderation actions are disabled. Switch to Manager to reply, hide or block.</p>
+              )}
+
+              <div className="mt-4 flex flex-col divide-y divide-neutral-100">
+                {shownComments.length === 0 && <p className="py-6 text-center text-sm text-neutral-400">No comments on this platform.</p>}
+                {shownComments.map((c) => {
+                  const isBlocked = blocked.includes(c.name);
+                  return (
+                    <div key={c.id} className="flex gap-3 py-3">
+                      <span className="relative shrink-0">
+                        <span className="flex h-9 w-9 items-center justify-center rounded-full bg-neutral-200 text-xs font-semibold text-neutral-700">{c.name.split(' ').map((n) => n[0]).join('').slice(0, 2)}</span>
+                        <span className="absolute -bottom-1 -right-1"><PlatformChip platform={c.platform} /></span>
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        {isBlocked ? (
+                          <div className="flex items-center justify-between rounded-lg bg-neutral-100 px-3 py-2">
+                            <span className="flex items-center gap-1.5 text-xs text-neutral-500"><Ban size={12} /> {c.name} blocked — comment hidden</span>
+                            {canModerate && <button onClick={() => toggleBlock(c.name)} className="flex items-center gap-1 text-xs font-medium text-primary-800 hover:underline"><RotateCcw size={11} /> Unblock</button>}
+                          </div>
+                        ) : (
+                          <>
+                            <p className="text-sm"><span className="font-medium text-text-dark">{c.name}</span> <span className="text-xs text-neutral-400">· {c.time}</span></p>
+                            <p className="text-sm text-neutral-700">{c.text}</p>
+                            <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-neutral-500">
+                              <button onClick={() => likeComment(c.id)} disabled={!canModerate} title={canModerate ? 'Like as the Chamber' : undefined}
+                                className={cn('flex items-center gap-1', c.liked ? 'font-medium text-text-red' : canModerate ? 'hover:text-text-red' : '')}>
+                                <Heart size={12} className={cn(c.liked && 'fill-current')} /> {c.likes}
+                              </button>
+                              {canModerate && <button onClick={() => setReplyingTo(replyingTo === c.id ? null : c.id)} className="flex items-center gap-1 font-medium text-primary-800 hover:underline"><CornerDownRight size={11} /> Reply</button>}
+                              {canModerate && <button onClick={() => deleteComment(c.id)} className="flex items-center gap-1 font-medium text-neutral-500 hover:text-text-red"><EyeOff size={11} /> Hide</button>}
+                              {canModerate && <button onClick={() => toggleBlock(c.name)} className="flex items-center gap-1 font-medium text-neutral-500 hover:text-text-red"><Ban size={11} /> Block</button>}
+                            </div>
+
+                            {/* replies */}
+                            {c.replies.length > 0 && (
+                              <div className="mt-2 flex flex-col gap-1.5 border-l-2 border-neutral-200 pl-3">
+                                {c.replies.map((r) => (
+                                  <div key={r.id} className="flex items-start justify-between gap-2">
+                                    <p className="text-sm text-neutral-700"><span className="font-medium text-primary-800">EP Chamber</span> {r.text} <span className="text-xs text-neutral-400">· {r.time}</span></p>
+                                    <div className="flex shrink-0 items-center gap-2">
+                                      <button onClick={() => likeReply(c.id, r.id)} disabled={!canModerate} className={cn('flex items-center gap-1 text-xs', r.liked ? 'text-text-red' : 'text-neutral-400', canModerate && !r.liked && 'hover:text-text-red')}>
+                                        <Heart size={11} className={cn(r.liked && 'fill-current')} /> {r.likes}
+                                      </button>
+                                      {canModerate && <button onClick={() => deleteReply(c.id, r.id)} className="text-neutral-400 hover:text-text-red" title="Delete reply"><Trash2 size={12} /></button>}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+
+                            {/* reply input */}
+                            {canModerate && replyingTo === c.id && (
+                              <div className="mt-2 flex items-center gap-2 pl-3">
+                                <input autoFocus value={replyDraft} onChange={(e) => setReplyDraft(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addReply(c.id)} placeholder={`Reply to ${c.name.split(' ')[0]}…`}
+                                  className="min-h-8 flex-1 rounded-lg px-2.5 py-1 text-sm shadow-6 outline outline-1 outline-neutral-200 focus-visible:outline-2 focus-visible:outline-primary-300" />
+                                <button onClick={() => addReply(c.id)} disabled={!replyDraft.trim()} className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-800 text-white disabled:opacity-50"><Send size={13} /></button>
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </DemoCard>
+            <DemoCard className="p-0">
+              <p className="border-b border-neutral-200 px-5 py-3 font-Sora text-sm font-semibold">Per-platform</p>
+              <table className="w-full text-left text-sm"><tbody className="divide-y divide-neutral-200">
+                {a.perPlatform.map((pp) => (
+                  <tr key={pp.platform}>
+                    <td className="px-5 py-3"><span className="flex items-center gap-2"><PlatformChip platform={pp.platform} /> {getPlatform(pp.platform).name}</span></td>
+                    <td className="px-5 py-3 text-neutral-700"><span className="flex items-center gap-1"><Eye size={13} /> {formatFollowers(pp.reach)}</span></td>
+                    <td className="px-5 py-3 text-neutral-700"><span className="flex items-center gap-1"><TrendingUp size={13} /> {pp.engagement}%</span></td>
+                  </tr>
+                ))}
+              </tbody></table>
+            </DemoCard>
+          </div>
+        </>
+      )}
+
+      {/* Live preview modal */}
+      <AnimatePresence>
+        {previewOpen && post.platforms.length > 0 && (
+          <Backdrop onClose={() => setPreviewOpen(false)} className="items-center justify-center p-4">
+            <ModalPanel className="w-full max-w-lg rounded-2xl bg-white p-5 shadow-7">
+              <div className="mb-3 flex items-start justify-between">
+                <SectionTitle title="Live preview" subtitle="How this post appears on each platform" />
+                <button onClick={() => setPreviewOpen(false)} className="text-neutral-400 hover:text-neutral-700"><X size={20} /></button>
+              </div>
+              <PreviewCarousel
+                platforms={post.platforms}
+                content={post.content}
+                image={post.video ?? post.media?.[0]}
+                images={post.media}
+                isVideo={!!post.video}
+                format={post.format}
+              />
+            </ModalPanel>
+          </Backdrop>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+const ACCOUNT_AVG_ENG = 4.9; // account-wide average engagement, for benchmarking
+
+const BigStat = ({ icon: Icon, label, value, delta, tint, sub }: { icon: typeof Eye; label: string; value: string; delta?: number; tint: string; sub?: string }) => (
+  <DemoCard className="flex flex-col gap-2">
+    <div className="flex items-center justify-between">
+      <span className={cn('flex h-9 w-9 items-center justify-center rounded-lg', tint)}><Icon size={17} /></span>
+      {delta != null && <span className={cn('flex items-center gap-0.5 text-xs font-medium', delta >= 0 ? 'text-warnings-success' : 'text-text-red')}>{delta >= 0 ? '▲' : '▼'} {Math.abs(delta)}%</span>}
+    </div>
+    <p className="font-Sora text-2xl font-semibold text-text-dark">{value}</p>
+    <p className="text-sm text-neutral-500">{label}</p>
+    {sub && <p className="text-[11px] text-neutral-400">{sub}</p>}
+  </DemoCard>
+);
+
+const Tile = ({ icon: Icon, tint, label, value }: { icon: typeof Eye; tint: string; label: string; value: string }) => (
+  <DemoCard className="flex items-center gap-3 p-3.5">
+    <span className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-xl', tint)}><Icon size={18} /></span>
+    <div className="min-w-0">
+      <p className="font-Sora text-lg font-semibold text-text-dark">{value}</p>
+      <p className="truncate text-xs text-neutral-500">{label}</p>
+    </div>
+  </DemoCard>
+);
