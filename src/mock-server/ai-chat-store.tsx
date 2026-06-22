@@ -1,5 +1,5 @@
 import { createContext, useContext, useRef, useState, ReactNode } from 'react';
-import { assistantReply } from '../_services/openai';
+import { assistantReply } from '@/modules/EpccDemo/_services/openai';
 
 // Shared AI-assistant conversation so the floating widget and the full AI Assistant
 // page use the SAME chat — switching between them (or reopening the widget) keeps

@@ -9,9 +9,9 @@ import { Backdrop, ModalPanel, Stagger, StaggerItem } from '../_components/motio
 import PostSheet from '../_components/PostSheet';
 import PostThumb from '../_components/PostThumb';
 import Composer from './Composer';
-import { usePosts } from '../_data/posts-store';
-import { IPost, getPostAnalytics, TPostStatus } from '../_data/posts';
-import { PLATFORMS, TPlatformId } from '../_data/platforms';
+import { usePosts } from '@/mock-server/posts-store';
+import { IPost, getPostAnalytics, TPostStatus } from '@/mock-server/posts';
+import { PLATFORMS, TPlatformId } from '@/mock-server/platforms';
 import { EPCC_ROUTES } from '../routes';
 
 const tone: Record<TPostStatus, 'success' | 'info' | 'caution'> = {

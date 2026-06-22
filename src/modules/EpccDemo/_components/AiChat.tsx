@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Send, Sparkles, RotateCcw } from 'lucide-react';
 import { cn } from '@/shadecn/lib/utils';
-import { useAiChat } from '../_data/ai-chat-store';
+import { useAiChat } from '@/mock-server/ai-chat-store';
 import { hasOpenAIKey } from '../_services/openai';
 import FormattedText from './FormattedText';
 

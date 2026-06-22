@@ -9,9 +9,9 @@ import { ArrowLeft, Eye, TrendingUp, Megaphone, Trash2, Pencil, Heart, Send, Mes
 import { Button } from '@UI/index';
 import { cn } from '@/shadecn/lib/utils';
 import { DemoCard, SectionTitle, StatusPill, PlatformChip, formatFollowers, CHART_COLORS } from '../_components/ui';
-import { usePosts } from '../_data/posts-store';
-import { getPostAnalytics, IPost, TPostStatus } from '../_data/posts';
-import { getPlatform, platformChartColor, TPlatformId } from '../_data/platforms';
+import { usePosts } from '@/mock-server/posts-store';
+import { getPostAnalytics, IPost, TPostStatus } from '@/mock-server/posts';
+import { getPlatform, platformChartColor, TPlatformId } from '@/mock-server/platforms';
 import PostMedia from '../_components/PostMedia';
 import PreviewCarousel from '../_components/PreviewCarousel';
 import { Backdrop, ModalPanel } from '../_components/motion';

@@ -3,8 +3,8 @@ import {
   Heart, MessageCircle, Repeat2, Bookmark, Send, Eye, ThumbsUp, Share2, Music2, Plus,
 } from 'lucide-react';
 import { cn } from '@/shadecn/lib/utils';
-import { getPlatform, INSTAGRAM_GRADIENT, TPlatformId } from '../_data/platforms';
-import { FORMAT_SUPPORT, TPostFormat } from '../_data/posts';
+import { getPlatform, INSTAGRAM_GRADIENT, TPlatformId } from '@/mock-server/platforms';
+import { FORMAT_SUPPORT, TPostFormat } from '@/mock-server/posts';
 
 interface Props {
   platform: TPlatformId;

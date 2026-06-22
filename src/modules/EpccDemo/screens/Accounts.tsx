@@ -12,8 +12,8 @@ import {
   StatCard,
   formatFollowers,
 } from '../_components/ui';
-import { ACCOUNTS, IConnectedAccount, TAccountStatus } from '../_data/accounts';
-import { PLATFORMS, getPlatform, TPlatformId } from '../_data/platforms';
+import { ACCOUNTS, IConnectedAccount, TAccountStatus } from '@/mock-server/accounts';
+import { PLATFORMS, getPlatform, TPlatformId } from '@/mock-server/platforms';
 
 const statusPill = (status: TAccountStatus) => {
   if (status === 'connected') return <StatusPill tone="success">Connected</StatusPill>;

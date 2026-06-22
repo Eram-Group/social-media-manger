@@ -1,6 +1,6 @@
 import React from 'react';
 import { cn } from '@/shadecn/lib/utils';
-import { getPlatform, INSTAGRAM_GRADIENT, TPlatformId } from '../_data/platforms';
+import { getPlatform, INSTAGRAM_GRADIENT, TPlatformId } from '@/mock-server/platforms';
 
 // Lightweight presentational primitives for the EPCC demo. They use the same
 // Tailwind design tokens as the real app so the demo looks production-grade,

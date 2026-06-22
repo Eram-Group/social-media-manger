@@ -11,11 +11,11 @@ import { DsField, DsTextarea, DsSelect, DsDatePicker, DsTimePicker } from '../_c
 import ImageGenLoader from '../_components/ImageGenLoader';
 import AiButton from '../_components/AiButton';
 import PreviewCarousel from '../_components/PreviewCarousel';
-import { PLATFORMS, getPlatform, TPlatformId } from '../_data/platforms';
-import { ACCOUNTS } from '../_data/accounts';
-import { IPost, FORMAT_SUPPORT, PLATFORM_FIELDS, TPostFormat } from '../_data/posts';
-import { SUGGESTED_SLOTS } from '../_data/besttime';
-import { newPostId, mockPublishMetrics } from '../_data/posts-store';
+import { PLATFORMS, getPlatform, TPlatformId } from '@/mock-server/platforms';
+import { ACCOUNTS } from '@/mock-server/accounts';
+import { IPost, FORMAT_SUPPORT, PLATFORM_FIELDS, TPostFormat } from '@/mock-server/posts';
+import { SUGGESTED_SLOTS } from '@/mock-server/besttime';
+import { newPostId, mockPublishMetrics } from '@/mock-server/posts-store';
 import { generatePost, generateImage, generateVideo, generateMeta, hasOpenAIKey } from '../_services/openai';
 
 type TSaveAction = 'draft' | 'schedule' | 'publish';

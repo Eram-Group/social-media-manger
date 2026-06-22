@@ -5,9 +5,9 @@ import { Eye, Heart, MessageCircle, Share2, X, ArrowRight, Pencil, Megaphone, Tr
 import { cn } from '@/shadecn/lib/utils';
 import { DemoCard, SectionTitle, StatusPill, PlatformChip, formatFollowers } from './ui';
 import { Backdrop, DrawerPanel } from './motion';
-import { usePosts } from '../_data/posts-store';
-import { IPost, getPostAnalytics, TPostStatus } from '../_data/posts';
-import { getPlatform } from '../_data/platforms';
+import { usePosts } from '@/mock-server/posts-store';
+import { IPost, getPostAnalytics, TPostStatus } from '@/mock-server/posts';
+import { getPlatform } from '@/mock-server/platforms';
 import PostMedia from './PostMedia';
 import { EPCC_ROUTES } from '../routes';
 

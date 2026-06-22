@@ -5,8 +5,8 @@ import { cn } from '@/shadecn/lib/utils';
 import { DemoCard, SectionTitle, PlatformChip, formatFollowers } from '../_components/ui';
 import { Backdrop, ModalPanel } from '../_components/motion';
 import { DsSelect } from '../_components/form';
-import { CONVERSATIONS, IConversation, IInboxMsg, TConvType, TEAM, SAVED_REPLIES } from '../_data/inbox';
-import { getPlatform } from '../_data/platforms';
+import { CONVERSATIONS, IConversation, IInboxMsg, TConvType, TEAM, SAVED_REPLIES } from '@/mock-server/inbox';
+import { getPlatform } from '@/mock-server/platforms';
 
 const typeIcon: Record<TConvType, typeof AtSign> = { comment: MessageCircle, dm: MessageSquare, mention: AtSign };
 const FILTERS: { key: 'all' | TConvType; label: string }[] = [

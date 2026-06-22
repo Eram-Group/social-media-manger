@@ -4,9 +4,9 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/shadecn/lib/utils';
 import PostPreview from './PostPreview';
 import { PlatformChip } from './ui';
-import { getPlatform, TPlatformId } from '../_data/platforms';
-import { TPostFormat } from '../_data/posts';
-import { ACCOUNTS } from '../_data/accounts';
+import { getPlatform, TPlatformId } from '@/mock-server/platforms';
+import { TPostFormat } from '@/mock-server/posts';
+import { ACCOUNTS } from '@/mock-server/accounts';
 
 const ACCOUNT_NAME = 'Eastern Province Chamber';
 const handleFor = (pid: TPlatformId) =>

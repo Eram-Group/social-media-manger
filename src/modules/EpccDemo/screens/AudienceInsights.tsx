@@ -9,9 +9,9 @@ import { DemoCard, SectionTitle, PlatformChip } from '../_components/ui';
 import AiInsightStrip from '../_components/AiInsightStrip';
 import Heatmap from '../_components/Heatmap';
 import { Stagger, StaggerItem } from '../_components/motion';
-import { audienceFor, INTERESTS, SENTIMENT_THEMES } from '../_data/audience';
-import { FORMAT_BEST_TIMES, BEST_TIME_RECS } from '../_data/besttime';
-import { PLATFORMS, getPlatform, TPlatformId } from '../_data/platforms';
+import { audienceFor, INTERESTS, SENTIMENT_THEMES } from '@/mock-server/audience';
+import { FORMAT_BEST_TIMES, BEST_TIME_RECS } from '@/mock-server/besttime';
+import { PLATFORMS, getPlatform, TPlatformId } from '@/mock-server/platforms';
 
 type TFilter = TPlatformId | 'all';
 type TDataView = 'all' | 'demographics' | 'behaviour' | 'sentiment' | 'besttime';

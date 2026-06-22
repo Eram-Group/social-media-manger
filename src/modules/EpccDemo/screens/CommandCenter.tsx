@@ -13,12 +13,12 @@ import {
 import { useState } from 'react';
 import { cn } from '@/shadecn/lib/utils';
 import { DemoCard, SectionTitle, StatCard, PlatformChip, StatusPill } from '../_components/ui';
-import { platformColorByName } from '../_data/platforms';
+import { platformColorByName } from '@/mock-server/platforms';
 import AiInsightStrip from '../_components/AiInsightStrip';
 import PostSheet from '../_components/PostSheet';
-import { KPIS, TREND, FOLLOWERS_BY_PLATFORM } from '../_data/kpis';
-import { usePosts } from '../_data/posts-store';
-import { IPost } from '../_data/posts';
+import { KPIS, TREND, FOLLOWERS_BY_PLATFORM } from '@/mock-server/kpis';
+import { usePosts } from '@/mock-server/posts-store';
+import { IPost } from '@/mock-server/posts';
 import { formatFollowers } from '../_components/ui';
 
 const WEEK = [

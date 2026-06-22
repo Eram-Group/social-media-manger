@@ -8,8 +8,8 @@ import {
 import { cn } from '@/shadecn/lib/utils';
 import { DemoCard, SectionTitle, PlatformChip, StatusPill, formatFollowers } from '../_components/ui';
 import { Backdrop, DrawerPanel } from '../_components/motion';
-import { usePosts } from '../_data/posts-store';
-import { IPost, TPostStatus, TPostType } from '../_data/posts';
+import { usePosts } from '@/mock-server/posts-store';
+import { IPost, TPostStatus, TPostType } from '@/mock-server/posts';
 
 const TODAY = '2026-06-22';
 const WEEK = [

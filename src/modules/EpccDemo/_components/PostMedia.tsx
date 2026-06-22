@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/shadecn/lib/utils';
 import { Images, X, ChevronLeft, ChevronRight } from 'lucide-react';
-import { IPost } from '../_data/posts';
+import { IPost } from '@/mock-server/posts';
 
 // Renders a post's media — a video player (reels/videos), a single image, or a
 // gallery grid. Images open a full-screen lightbox with prev/next + keyboard nav.

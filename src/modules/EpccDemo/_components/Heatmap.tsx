@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Sparkles, TrendingUp } from 'lucide-react';
 import { cn } from '@/shadecn/lib/utils';
-import { HEAT_DAYS, HEAT_HOURS, HEATMAP, SUGGESTED_SLOTS } from '../_data/besttime';
+import { HEAT_DAYS, HEAT_HOURS, HEATMAP, SUGGESTED_SLOTS } from '@/mock-server/besttime';
 
 const withAlpha = (hex: string, aa: string) => (hex.length === 7 ? `${hex}${aa}` : hex);
 

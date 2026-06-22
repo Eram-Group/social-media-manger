@@ -15,8 +15,8 @@ import {
 } from 'lucide-react';
 import { cn } from '@/shadecn/lib/utils';
 import { EPCC_ROUTES } from './routes';
-import { PostsProvider } from './_data/posts-store';
-import { AiChatProvider } from './_data/ai-chat-store';
+import { PostsProvider } from '@/mock-server/posts-store';
+import { AiChatProvider } from '@/mock-server/ai-chat-store';
 import AiAssistantWidget from './_components/AiAssistantWidget';
 
 const NAV = [

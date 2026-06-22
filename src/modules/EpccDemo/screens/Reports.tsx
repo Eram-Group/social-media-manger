@@ -9,8 +9,8 @@ import { AnimatePresence } from 'framer-motion';
 import { DemoCard, SectionTitle, StatusPill, StatCard, PlatformChip } from '../_components/ui';
 import AiInsightStrip from '../_components/AiInsightStrip';
 import { Backdrop, DrawerPanel } from '../_components/motion';
-import { REPORTS, IReport } from '../_data/reports';
-import { getPlatform, platformChartColor } from '../_data/platforms';
+import { REPORTS, IReport } from '@/mock-server/reports';
+import { getPlatform, platformChartColor } from '@/mock-server/platforms';
 
 const reachToNum = (s: string) =>
   s.endsWith('M') ? parseFloat(s) * 1000 : parseFloat(s); // K-scale for the chart

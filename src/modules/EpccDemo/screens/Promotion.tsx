@@ -10,9 +10,9 @@ import AiButton from '../_components/AiButton';
 import AiThinking from '../_components/AiThinking';
 import ScreenGlow from '../_components/ScreenGlow';
 import { Backdrop, ModalPanel } from '../_components/motion';
-import { getPlatform, TPlatformId } from '../_data/platforms';
-import { getPostAnalytics } from '../_data/posts';
-import { usePosts } from '../_data/posts-store';
+import { getPlatform, TPlatformId } from '@/mock-server/platforms';
+import { getPostAnalytics } from '@/mock-server/posts';
+import { usePosts } from '@/mock-server/posts-store';
 import { generateInsight } from '../_services/openai';
 
 const OBJECTIVES = [

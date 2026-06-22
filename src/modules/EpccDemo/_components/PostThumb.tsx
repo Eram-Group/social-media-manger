@@ -1,6 +1,6 @@
 import { cn } from '@/shadecn/lib/utils';
 import { Play, Images, FileText } from 'lucide-react';
-import { IPost } from '../_data/posts';
+import { IPost } from '@/mock-server/posts';
 
 // Small square media thumbnail for post rows/cards: video → play badge,
 // image(s) → first image with a count, text-only → a document icon.
