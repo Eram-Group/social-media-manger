@@ -6,7 +6,9 @@
   "description": "Eastern Province Chamber of Commerce — unified social media management demo (client-side, mock data).",
   "scripts": {
     "dev": "vite",
+    "dev:mock": "vite --mode mock",
     "build": "tsc --noEmit && vite build",
+    "build:mock": "tsc --noEmit && vite build --mode mock",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit"
   },
