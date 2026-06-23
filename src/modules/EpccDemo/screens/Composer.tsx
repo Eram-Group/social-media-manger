@@ -36,7 +36,7 @@ const Toggle = ({ on, onClick }: { on: boolean; onClick: () => void }) => (
 
 export default function Composer({
   initial, initialDate, onSave, onCancel,
-}: { initial?: IPost; initialDate?: string; onSave?: (post: IPost, action: TSaveAction) => void; onCancel?: () => void }) {
+}: { initial?: IPost; initialDate?: string; onSave?: (post: IPost, action: TSaveAction) => void | Promise<void>; onCancel?: () => void }) {
   const isEdit = Boolean(initial);
   const [step, setStep] = useState(0);
   const [brief, setBrief] = useState('Eastern Province Investment Forum 2026 — registration open');
@@ -82,16 +82,25 @@ export default function Composer({
   const runGenerateVideo = async () => { setGenVid(true); const r = await generateVideo(imagePrompt, format === 'reel' || format === 'story'); setImage(r.url); setIsVideo(true); setNote(r.source === 'openai' ? { kind: 'ok', text: 'Video generated with Sora' } : { kind: 'warn', text: `Sample video — ${r.error ?? 'AI unavailable'}` }); setGenVid(false); };
   const runGenerateMeta = async () => { setGenMeta(true); const r = await generateMeta(content || brief); setTags(r.tags); setSeoTitle(r.seoTitle); if (!altText) setAltText(r.altText); setNote(r.source === 'openai' ? { kind: 'ok', text: 'Tags & SEO generated' } : { kind: 'warn', text: `Sample tags — ${r.error ?? 'AI unavailable'}` }); setGenMeta(false); };
 
+  const [busy, setBusy] = useState<TSaveAction | null>(null);
+
   const buildPost = (status: IPost['status']): IPost => ({
     ...(initial ?? { id: '', type: 'post' as const }),
     id: initial?.id ?? newPostId(), content: content.trim(), platforms: selected, date, time,
     type: initial?.type ?? 'post', format, status,
     ...(image ? (isVideo ? { video: image } : { media: [image] }) : {}),
   });
-  const save = (action: TSaveAction) => {
+  const save = async (action: TSaveAction) => {
+    if (busy) return;
     const status: IPost['status'] = action === 'publish' ? 'published' : action === 'schedule' ? 'scheduled' : 'draft';
-    onSave?.(buildPost(status), action);
+    setBusy(action);
+    try {
+      await onSave?.(buildPost(status), action);
+    } finally {
+      setBusy(null);
+    }
   };
+  const anyBusy = busy !== null;
 
   const slug = (brief || 'epcc').toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 18).replace(/(^-|-$)/g, '');
   const trackedLink = link ? `chamber.co/ep-${(content.length * 7 + 13).toString(36)}?utm_source=epchamber&utm_medium=social&utm_campaign=${slug}` : '';
@@ -279,10 +288,11 @@ export default function Composer({
                 </div>
               </div>
               <div className="flex flex-wrap gap-3 border-t border-neutral-200 pt-4">
-                <div className="w-36"><Button variant="outline" size="medium" disable={!canSave} onClick={() => save('draft')}>Save draft</Button></div>
-                <div className="w-44"><Button variant="outlined-secondry" size="medium" disable={!canSave} onClick={() => save('schedule')}>{isEdit ? 'Save & schedule' : 'Schedule post'}</Button></div>
-                <div className="w-40"><Button variant="primary" size="medium" disable={!canSave} onClick={() => save('publish')}>Publish now</Button></div>
+                <div className="w-36"><Button variant="outline" size="medium" loading={busy === 'draft'} disable={!canSave || anyBusy} onClick={() => save('draft')}>Save draft</Button></div>
+                <div className="w-44"><Button variant="outlined-secondry" size="medium" loading={busy === 'schedule'} disable={!canSave || anyBusy} onClick={() => save('schedule')}>{isEdit ? 'Save & schedule' : 'Schedule post'}</Button></div>
+                <div className="w-40"><Button variant="primary" size="medium" loading={busy === 'publish'} disable={!canSave || anyBusy} onClick={() => save('publish')}>{busy === 'publish' ? 'Publishing…' : 'Publish now'}</Button></div>
               </div>
+              {busy === 'publish' && <p className="flex items-center gap-2 text-xs text-neutral-500"><Sparkles size={13} className="text-primary-800" /> Publishing to your connected accounts — this can take a few seconds for images.</p>}
             </DemoCard>
           )}
 

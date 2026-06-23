@@ -75,6 +75,11 @@ export default function PostsAnalytics() {
           if (view.mode === 'edit') updatePost(finalPost); else addPost(finalPost);
           done();
           flash(message);
+          // Reconcile with the real list from the platform (gets the canonical
+          // post id, image and any metrics) shortly after publishing.
+          if (action === 'publish' && finalPost.remoteRefs?.length) {
+            window.setTimeout(() => refresh(), 1500);
+          }
         }}
       />
     );

@@ -46,13 +46,8 @@ export default function PostDetail() {
   const { posts, deletePost } = usePosts();
   const post = posts.find((p) => p.id === id);
 
-  // Comments only come from the platforms this post was actually published on.
-  const [comments, setComments] = useState<IComment[]>(() =>
-    SEED_COMMENTS.map((c, i) => ({
-      ...c,
-      platform: post && post.platforms.length ? post.platforms[i % post.platforms.length] : c.platform,
-    })),
-  );
+  // Real comments fetched for this post (see effect below).
+  const [comments, setComments] = useState<IComment[]>([]);
   const [draft, setDraft] = useState('');
   const [previewOpen, setPreviewOpen] = useState(false);
   const [blocked, setBlocked] = useState<string[]>([]);
@@ -78,6 +73,23 @@ export default function PostDetail() {
     loadLive();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ref?.platform, ref?.accountId, ref?.remoteId]);
+
+  // Load real comments for this post from the connected account.
+  useEffect(() => {
+    if (!ref) { setComments([]); return; }
+    let active = true;
+    fetch('/api/inbox', { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((d) => {
+        if (!active) return;
+        const real: IComment[] = (d.items ?? [])
+          .filter((it: any) => it.postId === ref.remoteId)
+          .map((it: any) => ({ id: it.id, name: it.author, platform: ref.platform, text: it.text, time: (it.time || '').slice(0, 10), likes: 0, replies: [] }));
+        setComments(real);
+      })
+      .catch(() => active && setComments([]));
+    return () => { active = false; };
+  }, [ref?.remoteId, ref?.platform]);
 
   if (!post) {
     return (
@@ -182,7 +194,9 @@ export default function PostDetail() {
       </DemoCard>
 
       {!a.published ? (
-        <DemoCard className="py-12 text-center text-sm text-neutral-600">This post is <span className="font-medium">{post.status}</span> — full analytics will appear once it's published.</DemoCard>
+        post.status === 'published' ? null : (
+          <DemoCard className="py-12 text-center text-sm text-neutral-600">This post is <span className="font-medium">{post.status}</span> — analytics will appear once it's published.</DemoCard>
+        )
       ) : (
         <>
           {/* Primary KPIs */}
