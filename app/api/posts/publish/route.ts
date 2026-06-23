@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getConnector, isSupported } from '@/server/connectors/registry';
 import { ConnectedAccount } from '@/server/connectors/types';
+import { findAccount } from '@/server/store';
 
 // POST /api/posts/publish
-// Body: { platform, accountId, accessToken, message?, imageUrl?, link?, scheduledPublishTime? }
+// Body: { platform, accountId, accessToken?, message?, imageUrl?, link?, scheduledPublishTime? }
 //
-// DEV: accountId/accessToken are passed in the body (copied from the connect
-// callback). Once the DB is added, the body will reference a stored connected
-// account by id and the server will load the (encrypted) token itself.
+// The access token is resolved server-side from the stored connected account
+// (so the browser never handles it). Passing accessToken explicitly still works
+// for quick CLI testing.
 export async function POST(req: NextRequest) {
   let body: any;
   try {
@@ -20,11 +21,18 @@ export async function POST(req: NextRequest) {
   if (!platform || !isSupported(platform)) {
     return NextResponse.json({ error: `Missing or unsupported platform: ${platform}` }, { status: 400 });
   }
-  if (!accountId || !accessToken) {
-    return NextResponse.json({ error: 'accountId and accessToken are required' }, { status: 400 });
+  if (!accountId) {
+    return NextResponse.json({ error: 'accountId is required' }, { status: 400 });
   }
 
-  const account: ConnectedAccount = { platform, accountId, accessToken };
+  // Prefer the stored token; fall back to an explicit one in the body.
+  const stored = await findAccount(platform, accountId);
+  const token = accessToken || stored?.accessToken;
+  if (!token) {
+    return NextResponse.json({ error: 'No access token found for this account. Connect it first.' }, { status: 400 });
+  }
+
+  const account: ConnectedAccount = { platform, accountId, accessToken: token, meta: stored?.meta };
   try {
     const result = await getConnector(platform).publish(account, {
       message,

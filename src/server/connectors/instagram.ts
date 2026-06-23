@@ -35,9 +35,9 @@ export const instagramConnector: SocialConnector = {
     const accounts: ConnectedAccount[] = [];
     for (const page of pages) {
       // Find the IG Business account linked to this Page.
-      const info = await graphGet<{ instagram_business_account?: { id: string; username?: string } }>(
+      const info = await graphGet<{ instagram_business_account?: { id: string; username?: string; followers_count?: number } }>(
         page.id,
-        { access_token: page.access_token, fields: 'instagram_business_account{id,username}' },
+        { access_token: page.access_token, fields: 'instagram_business_account{id,username,followers_count}' },
       );
       const ig = info.instagram_business_account;
       if (!ig) continue;
@@ -47,6 +47,7 @@ export const instagramConnector: SocialConnector = {
         name: ig.username ? `@${ig.username}` : page.name,
         accessToken: page.access_token, // the Page token is used for IG Graph calls
         tokenExpiresAt: null,
+        followers: ig.followers_count,
         meta: { pageId: page.id },
       });
     }

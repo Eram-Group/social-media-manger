@@ -4,6 +4,7 @@ dist-ssr
 .next
 next-env.d.ts
 /out
+.data
 *.local
 .DS_Store
 .env

@@ -23,6 +23,7 @@ export const facebookConnector: SocialConnector = {
       name: p.name,
       accessToken: p.access_token,
       tokenExpiresAt: null, // Page tokens from a long-lived user token don't expire
+      followers: p.followers_count ?? p.fan_count,
     }));
   },
 

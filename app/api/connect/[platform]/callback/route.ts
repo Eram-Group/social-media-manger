@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getConnector, isSupported } from '@/server/connectors/registry';
+import { upsertAccounts } from '@/server/store';
+import { APP_BASE_URL } from '@/server/env';
 
 // GET /api/connect/:platform/callback — provider redirects here with ?code & ?state.
-// Exchanges the code for connectable accounts (Pages / IG accounts).
-//
-// DEV NOTE: this returns the access tokens as JSON so you can test publishing
-// immediately. Once the database is wired up, tokens will be stored ENCRYPTED
-// server-side and this endpoint will redirect into the app instead of echoing them.
+// Exchanges the code for connectable accounts (Pages / IG accounts), persists them
+// server-side (tokens stay on the server), then redirects back to the Accounts page.
 export async function GET(req: NextRequest, { params }: { params: { platform: string } }) {
   const { platform } = params;
   if (!isSupported(platform)) {
@@ -25,33 +24,18 @@ export async function GET(req: NextRequest, { params }: { params: { platform: st
     return NextResponse.json({ error: 'Invalid or missing OAuth state' }, { status: 400 });
   }
 
+  const accountsUrl = (qs: string) => NextResponse.redirect(`${APP_BASE_URL}/epcc-demo/accounts?${qs}`);
+
   try {
     const accounts = await getConnector(platform).exchangeCode(code);
     if (!accounts.length) {
-      return NextResponse.json(
-        {
-          ok: false,
-          platform,
-          error:
-            platform === 'instagram'
-              ? 'No Instagram Business account is linked to your Page(s). Link one in the Page settings and retry.'
-              : 'No Pages found for this account. Make sure you are an admin of at least one Page.',
-        },
-        { status: 404 },
-      );
+      const reason = platform === 'instagram' ? 'no_ig_account' : 'no_pages';
+      return accountsUrl(`error=${reason}&platform=${platform}`);
     }
-    return NextResponse.json({
-      ok: true,
-      platform,
-      note: 'DEV ONLY — tokens are shown so you can test publishing. They will be stored encrypted server-side once the DB is added.',
-      accounts,
-      howToPublish: {
-        method: 'POST',
-        url: '/api/posts/publish',
-        body: { platform, accountId: '<accountId from above>', accessToken: '<accessToken from above>', message: 'Hello from the Chamber 🚀', imageUrl: '(optional public image URL)' },
-      },
-    });
+    const now = Math.floor(Date.now() / 1000);
+    await upsertAccounts(accounts.map((a) => ({ ...a, connectedAt: now })));
+    return accountsUrl(`connected=${platform}&count=${accounts.length}`);
   } catch (e) {
-    return NextResponse.json({ error: (e as Error).message }, { status: 500 });
+    return accountsUrl(`error=${encodeURIComponent((e as Error).message)}&platform=${platform}`);
   }
 }

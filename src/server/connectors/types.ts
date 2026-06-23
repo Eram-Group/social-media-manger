@@ -13,6 +13,8 @@ export interface ConnectedAccount {
   name?: string;                // display name / handle
   accessToken: string;          // page/long-lived token used to publish
   tokenExpiresAt?: number | null; // unix seconds, or null if effectively permanent
+  followers?: number;           // follower/fan count when the platform exposes it
+  connectedAt?: number;         // unix seconds when authorized
   meta?: Record<string, unknown>; // platform-specific extras (e.g. linked IG id)
 }
 

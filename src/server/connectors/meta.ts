@@ -74,13 +74,15 @@ export interface MetaPage {
   id: string;
   name: string;
   access_token: string; // Page token — never expires when derived from a long-lived user token
+  followers_count?: number;
+  fan_count?: number;
 }
 
 // Step 3: list the Pages this user administers (each comes with its own Page token).
 export async function getPages(userToken: string): Promise<MetaPage[]> {
   const j = await graphGet<{ data: MetaPage[] }>('me/accounts', {
     access_token: userToken,
-    fields: 'id,name,access_token',
+    fields: 'id,name,access_token,followers_count,fan_count',
   });
   return j.data ?? [];
 }
