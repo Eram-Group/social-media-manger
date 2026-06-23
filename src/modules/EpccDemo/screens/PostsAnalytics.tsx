@@ -3,7 +3,7 @@
 import { ReactNode, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Eye, Plus, Pencil, Trash2, AlertTriangle, Megaphone, List, Table2, LayoutGrid, Check, CalendarClock, XCircle, Search, Inbox } from 'lucide-react';
+import { Eye, Plus, Pencil, Trash2, AlertTriangle, Megaphone, List, Table2, LayoutGrid, Check, CalendarClock, XCircle, Search, Inbox, Heart } from 'lucide-react';
 import { Button } from '@UI/index';
 import { cn } from '@/shadecn/lib/utils';
 import { DemoCard, SectionTitle, StatCard, StatusPill, PlatformChip, formatFollowers } from '../_components/ui';
@@ -13,8 +13,9 @@ import PostThumb from '../_components/PostThumb';
 import Composer from './Composer';
 import { usePosts } from '@/mock-server/posts-store';
 import { IPost, getPostAnalytics, TPostStatus } from '@/mock-server/posts';
-import { PLATFORMS, TPlatformId } from '@/mock-server/platforms';
+import { PLATFORMS, TPlatformId, getPlatform } from '@/mock-server/platforms';
 import { EPCC_ROUTES } from '../routes';
+import { publishPost, outcomesToRefs } from '../_services/publish';
 
 const tone: Record<TPostStatus, 'success' | 'info' | 'caution'> = {
   published: 'success', scheduled: 'info', draft: 'caution',
@@ -27,7 +28,7 @@ export default function PostsAnalytics() {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
-  const { posts, addPost, updatePost, deletePost, loadSample } = usePosts();
+  const { posts, addPost, updatePost, deletePost, refresh } = usePosts();
   const [view, setView] = useState<TView>(params.get('create') ? { mode: 'create' } : { mode: 'list' });
   const [viewMode, setViewMode] = useState<TViewMode>('table');
   const [open, setOpen] = useState<IPost | null>(null);
@@ -51,10 +52,38 @@ export default function PostsAnalytics() {
         initial={view.mode === 'edit' ? view.post : undefined}
         initialDate={view.mode === 'create' ? params.get('date') ?? undefined : undefined}
         onCancel={done}
-        onSave={(post, action) => {
-          if (view.mode === 'edit') updatePost(post); else addPost(post);
+        onSave={async (post, action) => {
+          let finalPost = post;
+          let message = action === 'publish' ? 'Post published ✓' : action === 'schedule' ? 'Post scheduled ✓' : 'Draft saved ✓';
+
+          // Both publish and schedule hit the real platform; schedule passes a future time.
+          if (action === 'publish' || action === 'schedule') {
+            const schedTs = action === 'schedule'
+              ? Math.floor(new Date(`${post.date}T${post.time}:00`).getTime() / 1000)
+              : undefined;
+            const verb = action === 'schedule' ? 'Scheduled' : 'Published';
+            const outcomes = await publishPost(post, schedTs);
+            if (outcomes.length) {
+              const ok = outcomes.filter((o) => o.ok);
+              const failed = outcomes.filter((o) => !o.ok);
+              finalPost = { ...post, remoteRefs: outcomesToRefs(outcomes) };
+              if (ok.length && !failed.length) {
+                message = `${verb} on ${ok.map((o) => getPlatform(o.platform).name).join(', ')} ✓`;
+              } else if (ok.length && failed.length) {
+                message = `${verb} on ${ok.map((o) => getPlatform(o.platform).name).join(', ')}; ${failed.map((o) => `${getPlatform(o.platform).name}: ${o.error}`).join(', ')}`;
+              } else {
+                message = `${verb} failed — ${failed.map((o) => `${getPlatform(o.platform).name}: ${o.error}`).join(', ')}`;
+              }
+            }
+          }
+
+          if (view.mode === 'edit') updatePost(finalPost); else addPost(finalPost);
           done();
-          flash(action === 'publish' ? 'Post published ✓' : action === 'schedule' ? 'Post scheduled ✓' : 'Draft saved ✓');
+          flash(message);
+          // Reconcile published posts with the platform shortly after.
+          if (action === 'publish' && finalPost.remoteRefs?.length) {
+            window.setTimeout(() => refresh(), 1500);
+          }
         }}
       />
     );
@@ -67,8 +96,8 @@ export default function PostsAnalytics() {
       (search.trim() === '' || p.content.toLowerCase().includes(search.toLowerCase())),
   );
   const published = posts.filter((p) => p.status === 'published');
-  const totalReach = published.reduce((s, p) => s + (p.reach ?? 0), 0);
-  const avgEng = published.length ? (published.reduce((s, p) => s + getPostAnalytics(p).engagementRate, 0) / published.length).toFixed(1) : '0';
+  const totalEngagement = published.reduce((s, p) => s + (p.likes ?? 0) + (p.comments ?? 0) + (p.shares ?? 0), 0);
+  const totalComments = published.reduce((s, p) => s + (p.comments ?? 0), 0);
 
   const STATUSES: { key: TStatusFilter; label: string }[] = [
     { key: 'all', label: 'All' }, { key: 'published', label: 'Published' }, { key: 'scheduled', label: 'Scheduled' }, { key: 'draft', label: 'Drafts' },
@@ -102,11 +131,14 @@ export default function PostsAnalytics() {
     </div>
   );
 
+  // Facebook no longer exposes reach via the API, so we show real engagement
+  // (likes + comments + shares) for published posts instead.
+  const engOf = (p: IPost) => (p.likes ?? 0) + (p.comments ?? 0) + (p.shares ?? 0);
   const reachCell = (p: IPost) => {
-    const an = getPostAnalytics(p);
-    return an.published
-      ? <span className="flex items-center gap-1 text-neutral-700"><Eye size={14} /> {formatFollowers(an.reach)}</span>
-      : <span className={cn('text-xs font-medium', p.status === 'scheduled' ? 'text-primary-800' : 'text-warnings-caution')}>{p.status === 'scheduled' ? `Scheduled · ${p.time}` : 'Draft'}</span>;
+    if (p.status === 'published') {
+      return <span className="flex items-center gap-1 text-neutral-700"><Heart size={14} /> {engOf(p).toLocaleString()}</span>;
+    }
+    return <span className={cn('text-xs font-medium', p.status === 'scheduled' ? 'text-primary-800' : 'text-warnings-caution')}>{p.status === 'scheduled' ? `Scheduled · ${p.time}` : 'Draft'}</span>;
   };
 
   return (
@@ -123,8 +155,8 @@ export default function PostsAnalytics() {
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard label="Total posts" value={`${posts.length}`} />
         <StatCard label="Published" value={`${published.length}`} />
-        <StatCard label="Total reach" value={formatFollowers(totalReach)} />
-        <StatCard label="Avg. engagement" value={`${avgEng}%`} />
+        <StatCard label="Total engagement" value={totalEngagement.toLocaleString()} />
+        <StatCard label="Comments" value={totalComments.toLocaleString()} />
       </div>
 
       {/* Search */}
@@ -197,7 +229,7 @@ export default function PostsAnalytics() {
             </div>
             <div className="flex gap-3">
               <div className="w-40"><Button variant="primary" size="medium" leftIcon={<Plus size={16} />} onClick={() => setView({ mode: 'create' })}>New post</Button></div>
-              <div className="w-44"><Button variant="outline" size="medium" onClick={() => { loadSample(); flash('Sample data loaded'); }}>Load sample data</Button></div>
+              <div className="w-44"><Button variant="outline" size="medium" onClick={() => { refresh(); flash('Refreshed from your accounts'); }}>Refresh posts</Button></div>
             </div>
           </DemoCard>
         ) : (
@@ -240,7 +272,7 @@ export default function PostsAnalytics() {
                   className={cn('flex h-5 w-5 items-center justify-center rounded border', allSelected ? 'border-primary-800 bg-primary-800 text-white' : 'border-neutral-300')}>{allSelected && <Check size={12} />}</button></th>
                 <th className="px-5 py-3 font-medium">Post</th><th className="px-5 py-3 font-medium">Status</th>
                 <th className="px-5 py-3 font-medium">Platforms</th><th className="px-5 py-3 font-medium">Schedule</th>
-                <th className="px-5 py-3 font-medium">Reach</th><th className="px-5 py-3 font-medium text-right">Actions</th>
+                <th className="px-5 py-3 font-medium">Engagement</th><th className="px-5 py-3 font-medium text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-neutral-200">

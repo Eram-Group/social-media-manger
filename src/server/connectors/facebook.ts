@@ -4,9 +4,60 @@
 // Pages you administer without App Review.
 import { redirectUri } from '@/server/env';
 import { ConnectedAccount, PublishInput, PublishResult, SocialConnector } from './types';
-import { buildAuthUrl, codeToPages, graphPost } from './meta';
+import { buildAuthUrl, codeToUserToken, discoverPages, graphPost, graphPostForm, graphGet, graphDelete, ruploadBytes } from './meta';
 
-const SCOPES = ['pages_show_list', 'pages_read_engagement', 'pages_manage_posts'];
+// Publish a Reel (vertical video) via the 3-step video_reels flow.
+async function publishReel(pageId: string, token: string, video: Blob, description?: string): Promise<PublishResult> {
+  const start = await graphPost<{ video_id: string; upload_url: string }>(`${pageId}/video_reels`, {
+    upload_phase: 'start',
+    access_token: token,
+  });
+  await ruploadBytes(start.upload_url, token, await video.arrayBuffer());
+  const finish = await graphPost<{ success?: boolean; post_id?: string }>(`${pageId}/video_reels`, {
+    access_token: token,
+    upload_phase: 'finish',
+    video_id: start.video_id,
+    video_state: 'PUBLISHED',
+    ...(description ? { description } : {}),
+  });
+  const remoteId = finish.post_id || start.video_id;
+  return { remoteId, url: `https://www.facebook.com/${remoteId}`, raw: finish };
+}
+
+// Publish a photo Story: upload an unpublished photo, then attach it as a story.
+async function publishPhotoStory(pageId: string, token: string, photo: Blob): Promise<PublishResult> {
+  const form = new FormData();
+  form.append('source', photo, 'story.jpg');
+  form.append('published', 'false');
+  form.append('access_token', token);
+  const up = await graphPostForm<{ id: string }>(`${pageId}/photos`, form);
+  const story = await graphPost<{ post_id?: string; success?: boolean }>(`${pageId}/photo_stories`, {
+    photo_id: up.id,
+    access_token: token,
+  });
+  const remoteId = story.post_id || up.id;
+  return { remoteId, url: `https://www.facebook.com/${remoteId}`, raw: story };
+}
+
+// Publish a video Story via the video_stories flow.
+async function publishVideoStory(pageId: string, token: string, video: Blob): Promise<PublishResult> {
+  const start = await graphPost<{ video_id: string; upload_url: string }>(`${pageId}/video_stories`, {
+    upload_phase: 'start',
+    access_token: token,
+  });
+  await ruploadBytes(start.upload_url, token, await video.arrayBuffer());
+  const finish = await graphPost<{ post_id?: string; success?: boolean }>(`${pageId}/video_stories`, {
+    access_token: token,
+    upload_phase: 'finish',
+    video_id: start.video_id,
+  });
+  const remoteId = finish.post_id || start.video_id;
+  return { remoteId, url: `https://www.facebook.com/${remoteId}`, raw: finish };
+}
+
+// business_management lets us reach Pages owned via a Business / New Pages Experience
+// (which don't appear on the personal /me/accounts edge).
+const SCOPES = ['pages_show_list', 'pages_read_engagement', 'pages_read_user_content', 'pages_manage_posts', 'pages_manage_engagement', 'read_insights', 'business_management'];
 
 export const facebookConnector: SocialConnector = {
   id: 'facebook',
@@ -16,7 +67,8 @@ export const facebookConnector: SocialConnector = {
   },
 
   async exchangeCode(code: string): Promise<ConnectedAccount[]> {
-    const pages = await codeToPages(code, redirectUri('facebook'));
+    const userToken = await codeToUserToken(code, redirectUri('facebook'));
+    const pages = await discoverPages(userToken);
     return pages.map((p) => ({
       platform: 'facebook' as const,
       accountId: p.id,
@@ -29,8 +81,55 @@ export const facebookConnector: SocialConnector = {
 
   async publish(account: ConnectedAccount, input: PublishInput): Promise<PublishResult> {
     const scheduling = typeof input.scheduledPublishTime === 'number';
+    const fmt = input.format ?? 'post';
+    const page = account.accountId;
+    const token = account.accessToken;
 
-    // Photo post -> /{page-id}/photos ; text/link post -> /{page-id}/feed
+    // Reel — requires a video.
+    if (fmt === 'reel') {
+      if (!input.videoBlob) throw new Error('A Reel needs a (vertical) video. Upload a video and try again.');
+      return publishReel(page, token, input.videoBlob, input.message);
+    }
+
+    // Story — photo or video story.
+    if (fmt === 'story') {
+      if (input.videoBlob) return publishVideoStory(page, token, input.videoBlob);
+      if (input.imageBlob) return publishPhotoStory(page, token, input.imageBlob);
+      throw new Error('A Story needs an image or video. Upload media and try again.');
+    }
+
+    // Video / reel / story -> /{page-id}/videos (the text becomes the description).
+    if (input.videoBlob || input.videoUrl) {
+      const form = new FormData();
+      if (input.videoBlob) form.append('source', input.videoBlob, 'upload.mp4');
+      else if (input.videoUrl) form.append('file_url', input.videoUrl);
+      if (input.message) form.append('description', input.message);
+      form.append('access_token', account.accessToken);
+      if (scheduling) {
+        form.append('published', 'false');
+        form.append('scheduled_publish_time', String(input.scheduledPublishTime));
+      }
+      const res = await graphPostForm<{ id: string }>(`${account.accountId}/videos`, form);
+      return { remoteId: res.id, url: `https://www.facebook.com/${res.id}`, raw: res };
+    }
+
+    // Photo post from raw bytes -> upload directly via multipart `source`
+    // (no public URL needed — handles local uploads from the composer).
+    if (input.imageBlob) {
+      const form = new FormData();
+      form.append('source', input.imageBlob, 'upload.jpg');
+      if (input.message) form.append('caption', input.message);
+      form.append('access_token', account.accessToken);
+      if (scheduling) {
+        form.append('published', 'false');
+        form.append('scheduled_publish_time', String(input.scheduledPublishTime));
+      }
+      const res = await graphPostForm<{ id: string; post_id?: string }>(`${account.accountId}/photos`, form);
+      const remoteId = res.post_id || res.id;
+      return { remoteId, url: `https://www.facebook.com/${remoteId}`, raw: res };
+    }
+
+    // Photo post by public URL -> /{page-id}/photos ; text/link post -> /{page-id}/feed
     if (input.imageUrl) {
       const body: Record<string, string> = {
         url: input.imageUrl,
@@ -57,5 +156,9 @@ export const facebookConnector: SocialConnector = {
     }
     const res = await graphPost<{ id: string }>(`${account.accountId}/feed`, body);
     return { remoteId: res.id, url: `https://www.facebook.com/${res.id}`, raw: res };
+  },
+
+  async deletePost(account: ConnectedAccount, remoteId: string): Promise<void> {
+    await graphDelete(remoteId, { access_token: account.accessToken });
   },
 };

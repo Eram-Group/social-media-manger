@@ -19,9 +19,15 @@ export interface ConnectedAccount {
 }
 
 // What we want to publish. A connector adapts this to its platform's API.
+export type TPublishFormat = 'post' | 'reel' | 'story' | 'video';
+
 export interface PublishInput {
   message?: string;             // caption / text body
+  format?: TPublishFormat;      // how to publish it (feed post, reel, story, video)
   imageUrl?: string;            // public URL of an image to attach
+  imageBlob?: Blob;             // raw image bytes (uploaded directly, no public URL needed)
+  videoUrl?: string;            // public URL of a video
+  videoBlob?: Blob;             // raw video bytes (uploaded directly)
   link?: string;               // optional link (text posts)
   scheduledPublishTime?: number; // unix seconds; if set + supported, schedule it
 }
@@ -46,4 +52,7 @@ export interface SocialConnector {
 
   // 3. Read-back (optional, added later for Reports/analytics).
   getMetrics?(account: ConnectedAccount, remoteId: string): Promise<Record<string, number>>;
+
+  // 4. Delete a published post from the platform.
+  deletePost?(account: ConnectedAccount, remoteId: string): Promise<void>;
 }

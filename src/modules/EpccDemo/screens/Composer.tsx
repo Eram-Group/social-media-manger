@@ -15,8 +15,9 @@ import { PLATFORMS, getPlatform, TPlatformId } from '@/mock-server/platforms';
 import { ACCOUNTS } from '@/mock-server/accounts';
 import { IPost, FORMAT_SUPPORT, PLATFORM_FIELDS, TPostFormat } from '@/mock-server/posts';
 import { SUGGESTED_SLOTS } from '@/mock-server/besttime';
-import { newPostId, mockPublishMetrics } from '@/mock-server/posts-store';
+import { newPostId } from '@/mock-server/posts-store';
 import { generatePost, generateImage, generateVideo, generateMeta, hasOpenAIKey } from '../_services/openai';
+import { useConnectedPlatforms } from '../_services/useConnectedPlatforms';
 
 type TSaveAction = 'draft' | 'schedule' | 'publish';
 const LIMITS: Record<TPlatformId, number> = { x: 280, instagram: 2200, facebook: 5000, linkedin: 3000, tiktok: 2200, snapchat: 250 };
@@ -36,7 +37,7 @@ const Toggle = ({ on, onClick }: { on: boolean; onClick: () => void }) => (
 
 export default function Composer({
   initial, initialDate, onSave, onCancel,
-}: { initial?: IPost; initialDate?: string; onSave?: (post: IPost, action: TSaveAction) => void; onCancel?: () => void }) {
+}: { initial?: IPost; initialDate?: string; onSave?: (post: IPost, action: TSaveAction) => void | Promise<void>; onCancel?: () => void }) {
   const isEdit = Boolean(initial);
   const [step, setStep] = useState(0);
   const [brief, setBrief] = useState('Eastern Province Investment Forum 2026 — registration open');
@@ -45,9 +46,11 @@ export default function Composer({
   const [imagePrompt, setImagePrompt] = useState('Modern Dammam skyline at golden hour, business event banner');
   const [image, setImage] = useState<string | undefined>();
   const [isVideo, setIsVideo] = useState(false);
-  const [selected, setSelected] = useState<TPlatformId[]>(initial?.platforms ?? ['x', 'instagram', 'linkedin']);
+  const { connected } = useConnectedPlatforms();
+  const [selected, setSelected] = useState<TPlatformId[]>(initial?.platforms ?? []);
   const [date, setDate] = useState(initial?.date ?? initialDate ?? '2026-06-25');
   const [time, setTime] = useState(initial?.time ?? '09:00');
+  const [mode, setMode] = useState<'now' | 'schedule'>(initial?.status === 'scheduled' ? 'schedule' : 'now');
 
   const [tags, setTags] = useState<string[]>(['EPChamber', 'Vision2030']);
   const [tagInput, setTagInput] = useState('');
@@ -61,14 +64,38 @@ export default function Composer({
   const [genImg, setGenImg] = useState(false);
   const [genVid, setGenVid] = useState(false);
   const [genMeta, setGenMeta] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [note, setNote] = useState<{ kind: 'ok' | 'warn'; text: string } | null>(null);
 
-  const onDrop = (files: File[]) => {
+  // Upload the file to public hosting (Vercel Blob) so Instagram can fetch it and
+  // Facebook gets a reliable URL. Falls back to a local data URL if hosting is off
+  // (Facebook still works via byte upload; Instagram needs the public URL).
+  const onDrop = async (files: File[]) => {
     const file = files[0]; if (!file) return;
     const vid = file.type.startsWith('video');
-    const reader = new FileReader();
-    reader.onload = () => { setImage(reader.result as string); setIsVideo(vid); setNote({ kind: 'ok', text: vid ? 'Video uploaded' : 'Image uploaded' }); };
-    reader.readAsDataURL(file);
+    setIsVideo(vid);
+    setUploading(true);
+    setNote(null);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const res = await fetch('/api/upload', { method: 'POST', body: fd });
+      const j = await res.json();
+      if (res.ok && j.url) {
+        setImage(j.url);
+        setNote({ kind: 'ok', text: vid ? 'Video uploaded' : 'Image uploaded' });
+      } else {
+        // Fallback: local data URL (works for Facebook, not Instagram).
+        const reader = new FileReader();
+        reader.onload = () => setImage(reader.result as string);
+        reader.readAsDataURL(file);
+        setNote({ kind: 'warn', text: `${j.error || 'Hosting unavailable'} — Instagram needs a hosted image.` });
+      }
+    } catch (e) {
+      setNote({ kind: 'warn', text: (e as Error).message });
+    } finally {
+      setUploading(false);
+    }
   };
   const { getRootProps, getInputProps, isDragActive } = useDropzone({ onDrop, accept: { 'image/*': [], 'video/*': [] }, multiple: false });
 
@@ -82,17 +109,25 @@ export default function Composer({
   const runGenerateVideo = async () => { setGenVid(true); const r = await generateVideo(imagePrompt, format === 'reel' || format === 'story'); setImage(r.url); setIsVideo(true); setNote(r.source === 'openai' ? { kind: 'ok', text: 'Video generated with Sora' } : { kind: 'warn', text: `Sample video — ${r.error ?? 'AI unavailable'}` }); setGenVid(false); };
   const runGenerateMeta = async () => { setGenMeta(true); const r = await generateMeta(content || brief); setTags(r.tags); setSeoTitle(r.seoTitle); if (!altText) setAltText(r.altText); setNote(r.source === 'openai' ? { kind: 'ok', text: 'Tags & SEO generated' } : { kind: 'warn', text: `Sample tags — ${r.error ?? 'AI unavailable'}` }); setGenMeta(false); };
 
+  const [busy, setBusy] = useState<TSaveAction | null>(null);
+
   const buildPost = (status: IPost['status']): IPost => ({
     ...(initial ?? { id: '', type: 'post' as const }),
     id: initial?.id ?? newPostId(), content: content.trim(), platforms: selected, date, time,
     type: initial?.type ?? 'post', format, status,
     ...(image ? (isVideo ? { video: image } : { media: [image] }) : {}),
-    ...(status === 'published' ? mockPublishMetrics(selected) : {}),
   });
-  const save = (action: TSaveAction) => {
+  const save = async (action: TSaveAction) => {
+    if (busy) return;
     const status: IPost['status'] = action === 'publish' ? 'published' : action === 'schedule' ? 'scheduled' : 'draft';
-    onSave?.(buildPost(status), action);
+    setBusy(action);
+    try {
+      await onSave?.(buildPost(status), action);
+    } finally {
+      setBusy(null);
+    }
   };
+  const anyBusy = busy !== null;
 
   const slug = (brief || 'epcc').toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 18).replace(/(^-|-$)/g, '');
   const trackedLink = link ? `chamber.co/ep-${(content.length * 7 + 13).toString(36)}?utm_source=epchamber&utm_medium=social&utm_campaign=${slug}` : '';
@@ -155,29 +190,40 @@ export default function Composer({
                 <div className="flex items-center justify-between">
                   <div>
                     <span className="text-sm font-semibold text-text-dark">Target platforms</span>
-                    <p className="text-xs text-neutral-500">{selected.length} of {PLATFORMS.length} selected · {selected.reduce((s, p) => { const a = ACCOUNTS.find((x) => x.platform === p); return s + (a?.followers ?? 0); }, 0) > 0 ? formatFollowers(selected.reduce((s, p) => { const a = ACCOUNTS.find((x) => x.platform === p); return s + (a?.followers ?? 0); }, 0)) : '0'} reach</p>
+                    <p className="text-xs text-neutral-500">{connected.length === 0 ? 'No accounts connected yet' : `${selected.length} of ${connected.length} connected selected`}</p>
                   </div>
-                  <button onClick={() => setSelected(selected.length === PLATFORMS.length ? [] : PLATFORMS.map((p) => p.id))} className="text-xs font-medium text-primary-800 hover:underline">{selected.length === PLATFORMS.length ? 'Clear all' : 'Select all'}</button>
+                  {connected.length > 0 && (
+                    <button onClick={() => setSelected(selected.length === connected.length ? [] : [...connected])} className="text-xs font-medium text-primary-800 hover:underline">{selected.length === connected.length ? 'Clear all' : 'Select all'}</button>
+                  )}
                 </div>
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                  {PLATFORMS.map((p) => {
-                    const on = selected.includes(p.id);
-                    const acc = ACCOUNTS.find((a) => a.platform === p.id);
-                    const feedOnly = format !== 'post' && !FORMAT_SUPPORT[format].includes(p.id);
-                    return (
-                      <button key={p.id} onClick={() => toggle(p.id)}
-                        className={cn('flex items-center gap-3 rounded-xl border p-3 text-left transition-all', on ? 'border-primary-400 bg-primary-100' : 'border-neutral-200 hover:bg-neutral-100')}>
-                        <PlatformChip platform={p.id} size="md" />
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium text-text-dark">{p.name}</p>
-                          <p className="truncate text-xs text-neutral-500">{acc?.handle ?? '—'} · {formatFollowers(acc?.followers ?? 0)} followers</p>
-                        </div>
-                        {feedOnly && <span className="shrink-0 rounded-full bg-warnings-cautionBg px-2 py-0.5 text-[10px] font-medium text-warnings-caution">feed only</span>}
-                        <span className={cn('flex h-5 w-5 shrink-0 items-center justify-center rounded-full border', on ? 'border-primary-800 bg-primary-800 text-white' : 'border-neutral-300')}>{on && <Check size={12} />}</span>
-                      </button>
-                    );
-                  })}
-                </div>
+
+                {connected.length === 0 ? (
+                  <div className="flex flex-col items-center gap-3 rounded-lg bg-neutral-100 py-8 text-center">
+                    <p className="text-sm text-neutral-600">You haven’t connected any accounts yet.</p>
+                    <a href="/epcc-demo/accounts" className="rounded-lg bg-primary-800 px-4 py-2 text-sm font-medium text-white hover:bg-primary-900">Connect an account →</a>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    {PLATFORMS.map((p) => {
+                      const isConnected = connected.includes(p.id);
+                      const on = selected.includes(p.id);
+                      const feedOnly = format !== 'post' && !FORMAT_SUPPORT[format].includes(p.id);
+                      return (
+                        <button key={p.id} disabled={!isConnected} onClick={() => isConnected && toggle(p.id)}
+                          className={cn('flex items-center gap-3 rounded-xl border p-3 text-left transition-all',
+                            !isConnected ? 'cursor-not-allowed border-neutral-200 bg-neutral-100 opacity-60' : on ? 'border-primary-400 bg-primary-100' : 'border-neutral-200 hover:bg-neutral-100')}>
+                          <PlatformChip platform={p.id} size="md" />
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-medium text-text-dark">{p.name}</p>
+                            <p className="truncate text-xs text-neutral-500">{isConnected ? 'Connected' : 'Not connected'}</p>
+                          </div>
+                          {isConnected && feedOnly && <span className="shrink-0 rounded-full bg-warnings-cautionBg px-2 py-0.5 text-[10px] font-medium text-warnings-caution">feed only</span>}
+                          <span className={cn('flex h-5 w-5 shrink-0 items-center justify-center rounded-full border', on ? 'border-primary-800 bg-primary-800 text-white' : 'border-neutral-300')}>{on && <Check size={12} />}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </DemoCard>
             </>
           )}
@@ -203,7 +249,7 @@ export default function Composer({
 
               <DemoCard className="flex flex-col gap-3">
                 <div className="flex items-center gap-2"><ImagePlus size={16} className="text-primary-800" /><span className="text-sm font-semibold text-text-dark">Media</span></div>
-                {genImg || genVid ? <ImageGenLoader kind={genVid ? 'video' : 'image'} hint={genVid ? 'AI video (Sora) can take up to a minute…' : undefined} /> : image ? (
+                {uploading ? <ImageGenLoader kind={isVideo ? 'video' : 'image'} hint="Uploading to hosting…" /> : genImg || genVid ? <ImageGenLoader kind={genVid ? 'video' : 'image'} hint={genVid ? 'AI video (Sora) can take up to a minute…' : undefined} /> : image ? (
                   <div className="relative overflow-hidden rounded-lg border border-neutral-200">
                     {isVideo ? <video src={image} className="max-h-64 w-full object-cover" muted loop autoPlay playsInline controls /> : <img src={image} alt={altText} className="max-h-64 w-full object-cover" />}
                     <button onClick={() => { setImage(undefined); setIsVideo(false); }} className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-black/60 text-white"><X size={15} /></button>
@@ -267,23 +313,44 @@ export default function Composer({
             </div>
           )}
 
-          {/* STEP 3 — Schedule */}
+          {/* STEP 3 — Publish or schedule */}
           {step === 3 && (
             <DemoCard className="flex flex-col gap-4">
-              <span className="flex items-center gap-2 text-sm font-semibold text-text-dark"><CalendarClock size={16} className="text-primary-800" /> Schedule</span>
-              <div className="grid grid-cols-2 gap-4"><DsDatePicker label="Date" value={date} onChange={setDate} /><DsTimePicker label="Time" value={time} onChange={setTime} /></div>
-              <div>
-                <p className="flex items-center gap-1.5 text-xs font-medium text-neutral-600"><Sparkles size={13} className="text-primary-800" /> Suggested times</p>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {SUGGESTED_SLOTS.map((s) => { const on = date === s.date && time === s.time;
-                    return <button key={s.label} onClick={() => { setDate(s.date); setTime(s.time); }} title={s.reason} className={cn('flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs transition-colors', on ? 'border-primary-300 bg-secondary-200 text-primary-900' : 'border-neutral-300 bg-white text-neutral-700 hover:bg-neutral-100')}>{s.label}<span className="rounded-full bg-warnings-successBg px-1.5 text-[10px] font-medium text-warnings-success">{s.score}</span></button>; })}
-                </div>
+              <span className="flex items-center gap-2 text-sm font-semibold text-text-dark"><CalendarClock size={16} className="text-primary-800" /> Publishing</span>
+
+              {/* Toggle: publish now vs schedule for later */}
+              <div className="grid grid-cols-2 gap-2 rounded-xl bg-neutral-100 p-1">
+                {(['now', 'schedule'] as const).map((m) => (
+                  <button key={m} onClick={() => setMode(m)}
+                    className={cn('rounded-lg py-2 text-sm font-medium transition-colors', mode === m ? 'bg-white text-primary-900 shadow-4' : 'text-neutral-600 hover:text-neutral-800')}>
+                    {m === 'now' ? 'Publish now' : 'Schedule for later'}
+                  </button>
+                ))}
               </div>
+
+              {mode === 'schedule' && (
+                <>
+                  <div className="grid grid-cols-2 gap-4"><DsDatePicker label="Date" value={date} onChange={setDate} /><DsTimePicker label="Time" value={time} onChange={setTime} /></div>
+                  <div>
+                    <p className="flex items-center gap-1.5 text-xs font-medium text-neutral-600"><Sparkles size={13} className="text-primary-800" /> Suggested times</p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {SUGGESTED_SLOTS.map((s) => { const on = date === s.date && time === s.time;
+                        return <button key={s.label} onClick={() => { setDate(s.date); setTime(s.time); }} title={s.reason} className={cn('flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs transition-colors', on ? 'border-primary-300 bg-secondary-200 text-primary-900' : 'border-neutral-300 bg-white text-neutral-700 hover:bg-neutral-100')}>{s.label}<span className="rounded-full bg-warnings-successBg px-1.5 text-[10px] font-medium text-warnings-success">{s.score}</span></button>; })}
+                    </div>
+                  </div>
+                  <p className="text-xs text-neutral-500">Scheduled posts are sent to the platform now and go live at the chosen time (Facebook requires at least ~10 minutes ahead).</p>
+                </>
+              )}
+
               <div className="flex flex-wrap gap-3 border-t border-neutral-200 pt-4">
-                <div className="w-36"><Button variant="outline" size="medium" disable={!canSave} onClick={() => save('draft')}>Save draft</Button></div>
-                <div className="w-44"><Button variant="outlined-secondry" size="medium" disable={!canSave} onClick={() => save('schedule')}>{isEdit ? 'Save & schedule' : 'Schedule post'}</Button></div>
-                <div className="w-40"><Button variant="primary" size="medium" disable={!canSave} onClick={() => save('publish')}>Publish now</Button></div>
+                <div className="w-36"><Button variant="outline" size="medium" loading={busy === 'draft'} disable={!canSave || anyBusy} onClick={() => save('draft')}>Save draft</Button></div>
+                {mode === 'schedule' ? (
+                  <div className="w-44"><Button variant="primary" size="medium" loading={busy === 'schedule'} disable={!canSave || anyBusy} onClick={() => save('schedule')}>{busy === 'schedule' ? 'Scheduling…' : 'Schedule post'}</Button></div>
+                ) : (
+                  <div className="w-40"><Button variant="primary" size="medium" loading={busy === 'publish'} disable={!canSave || anyBusy} onClick={() => save('publish')}>{busy === 'publish' ? 'Publishing…' : 'Publish now'}</Button></div>
+                )}
               </div>
+              {(busy === 'publish' || busy === 'schedule') && <p className="flex items-center gap-2 text-xs text-neutral-500"><Sparkles size={13} className="text-primary-800" /> Sending to your connected accounts — this can take a few seconds for images.</p>}
             </DemoCard>
           )}
 

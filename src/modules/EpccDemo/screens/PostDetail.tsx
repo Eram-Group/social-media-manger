@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
@@ -46,13 +46,8 @@ export default function PostDetail() {
   const { posts, deletePost } = usePosts();
   const post = posts.find((p) => p.id === id);
 
-  // Comments only come from the platforms this post was actually published on.
-  const [comments, setComments] = useState<IComment[]>(() =>
-    SEED_COMMENTS.map((c, i) => ({
-      ...c,
-      platform: post && post.platforms.length ? post.platforms[i % post.platforms.length] : c.platform,
-    })),
-  );
+  // Real comments fetched for this post (see effect below).
+  const [comments, setComments] = useState<IComment[]>([]);
   const [draft, setDraft] = useState('');
   const [previewOpen, setPreviewOpen] = useState(false);
   const [blocked, setBlocked] = useState<string[]>([]);
@@ -61,6 +56,40 @@ export default function PostDetail() {
   const [commentSort, setCommentSort] = useState<'new' | 'top'>('new');
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [replyDraft, setReplyDraft] = useState('');
+
+  // Live metrics for posts that were really published to a connected platform.
+  const ref = post?.remoteRefs?.[0];
+  const [live, setLive] = useState<{ loading: boolean; error?: string; data?: any }>({ loading: false });
+  const loadLive = () => {
+    if (!ref) return;
+    setLive({ loading: true });
+    fetch(`/api/posts/insights?platform=${ref.platform}&accountId=${ref.accountId}&remoteId=${encodeURIComponent(ref.remoteId)}`)
+      .then((r) => r.json())
+      .then((d) => setLive(d.ok ? { loading: false, data: d } : { loading: false, error: d.error }))
+      .catch((e) => setLive({ loading: false, error: (e as Error).message }));
+  };
+  useEffect(() => {
+    if (!ref) return;
+    loadLive();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ref?.platform, ref?.accountId, ref?.remoteId]);
+
+  // Load real comments for this post from the connected account.
+  useEffect(() => {
+    if (!ref) { setComments([]); return; }
+    let active = true;
+    fetch('/api/inbox', { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((d) => {
+        if (!active) return;
+        const real: IComment[] = (d.items ?? [])
+          .filter((it: any) => it.postId === ref.remoteId)
+          .map((it: any) => ({ id: it.id, name: it.author, platform: ref.platform, text: it.text, time: (it.time || '').slice(0, 10), likes: 0, replies: [] }));
+        setComments(real);
+      })
+      .catch(() => active && setComments([]));
+    return () => { active = false; };
+  }, [ref?.remoteId, ref?.platform]);
 
   if (!post) {
     return (
@@ -114,6 +143,53 @@ export default function PostDetail() {
         </div>
       </div>
 
+      {/* Live metrics — only for posts really published to a connected platform */}
+      {ref && (
+        <DemoCard className="flex flex-col gap-4 border-warnings-success/30 bg-warnings-successBg/40">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <span className="flex items-center gap-1.5 rounded-full bg-warnings-success/15 px-2.5 py-1 text-xs font-semibold text-warnings-success">
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-warnings-success" /> LIVE
+              </span>
+              <PlatformChip platform={ref.platform} size="sm" withLabel />
+              <span className="text-sm text-neutral-600">Real metrics from {getPlatform(ref.platform).name}</span>
+            </div>
+            <div className="flex items-center gap-3">
+              {(live.data?.permalink || ref.url) && (
+                <a href={live.data?.permalink || ref.url} target="_blank" rel="noreferrer" className="text-xs font-medium text-primary-800 hover:underline">View live post ↗</a>
+              )}
+              <button onClick={loadLive} disabled={live.loading} className="flex items-center gap-1 text-xs font-medium text-neutral-700 hover:underline disabled:opacity-50">
+                <RotateCcw size={13} className={cn(live.loading && 'animate-spin')} /> Refresh
+              </button>
+            </div>
+          </div>
+          {live.error ? (
+            <p className="text-sm text-text-red">Couldn’t load live metrics: {live.error}</p>
+          ) : (
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <LiveStat label="Likes" value={live.loading ? '…' : (live.data?.metrics?.likes ?? 0).toLocaleString()} />
+              <LiveStat label="Comments" value={live.loading ? '…' : (live.data?.metrics?.comments ?? 0).toLocaleString()} />
+              <LiveStat label="Shares" value={live.loading ? '…' : (live.data?.metrics?.shares ?? 0).toLocaleString()} />
+              {live.data?.metrics?.saved != null && <LiveStat label="Saves" value={(live.data.metrics.saved).toLocaleString()} />}
+              {live.data?.metrics?.views != null && <LiveStat label="Views" value={(live.data.metrics.views).toLocaleString()} />}
+              {live.data?.metrics?.clicks != null && <LiveStat label="Link clicks" value={(live.data.metrics.clicks).toLocaleString()} />}
+              {live.data?.metrics?.videoViews != null && <LiveStat label="Video views" value={(live.data.metrics.videoViews).toLocaleString()} />}
+            </div>
+          )}
+          {/* Reaction breakdown (real, when available) */}
+          {!live.error && live.data?.reactions && Object.keys(live.data.reactions).length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {Object.entries(live.data.reactions as Record<string, number>).filter(([, n]) => n > 0).map(([k, n]) => (
+                <span key={k} className="flex items-center gap-1 rounded-full border border-neutral-200 bg-white px-2.5 py-1 text-xs text-neutral-700">
+                  <span className="capitalize">{k}</span> {n.toLocaleString()}
+                </span>
+              ))}
+            </div>
+          )}
+          <p className="text-xs text-neutral-500">Facebook no longer exposes reach/impressions via the API; these are the real metrics it still provides.</p>
+        </DemoCard>
+      )}
+
       {/* Post hero */}
       <DemoCard className="flex flex-col gap-5 lg:flex-row">
         {(post.video || post.media?.length) ? <div className="lg:w-[44%] lg:shrink-0"><PostMedia post={post} /></div> : null}
@@ -130,103 +206,15 @@ export default function PostDetail() {
         </div>
       </DemoCard>
 
-      {!a.published ? (
-        <DemoCard className="py-12 text-center text-sm text-neutral-600">This post is <span className="font-medium">{post.status}</span> — full analytics will appear once it's published.</DemoCard>
-      ) : (
+      {post.status !== 'published' && (
+        <DemoCard className="py-12 text-center text-sm text-neutral-600">This post is <span className="font-medium">{post.status}</span> — analytics will appear once it's published.</DemoCard>
+      )}
+
+      {post.status === 'published' && (
         <>
-          {/* Primary KPIs */}
-          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-            <BigStat icon={Eye} label="Reach" value={formatFollowers(a.reach)} delta={11.2} tint="bg-primary-100 text-primary-800" />
-            <BigStat icon={TrendingUp} label="Impressions" value={formatFollowers(a.impressions)} delta={9.4} tint="bg-[#E0ECFF] text-[#2563EB]" />
-            <BigStat icon={Heart} label="Engagement rate" value={`${a.engagementRate}%`} delta={0.6} tint="bg-[#FCE7F3] text-[#DB2777]" sub={`vs ${ACCOUNT_AVG_ENG}% account avg`} />
-            <BigStat icon={Send} label="New follows" value={`+${a.follows}`} delta={6.1} tint="bg-warnings-successBg text-warnings-success" />
-          </div>
-          {/* Secondary metrics — icon tiles */}
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <Tile icon={Heart} tint="bg-[#FCE7F3] text-[#DB2777]" label="Likes" value={formatFollowers(a.likes)} />
-            <Tile icon={MessageCircle} tint="bg-[#E0ECFF] text-[#2563EB]" label="Comments" value={`${a.comments}`} />
-            <Tile icon={Share2} tint="bg-[#EDE9FE] text-[#7C3AED]" label="Shares" value={`${a.shares}`} />
-            <Tile icon={Bookmark} tint="bg-[#FEF3C7] text-[#D97706]" label="Saves" value={`${a.saves}`} />
-            <Tile icon={MousePointerClick} tint="bg-[#DCFCE7] text-[#16A34A]" label="Link clicks" value={formatFollowers(a.clicks)} />
-            <Tile icon={Users} tint="bg-[#E0F2FE] text-[#0284C7]" label="Profile visits" value={formatFollowers(a.profileVisits)} />
-            <Tile icon={Play} tint="bg-[#FEE2E2] text-[#DC2626]" label="Video views" value={formatFollowers(a.videoViews)} />
-            <Tile icon={Clock} tint="bg-neutral-100 text-neutral-600" label="Avg. watch" value={a.avgWatch} />
-          </div>
-
-          {/* charts */}
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-            <DemoCard className="lg:col-span-2">
-              <SectionTitle title="Reach & impressions" subtitle="First 14 days" />
-              <div className="mt-4 h-64"><ResponsiveContainer width="100%" height="100%"><AreaChart data={curve} margin={{ left: -18, top: 8 }}>
-                <defs>
-                  <linearGradient id="pdReach" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#025FCC" stopOpacity={0.35} /><stop offset="100%" stopColor="#025FCC" stopOpacity={0} /></linearGradient>
-                  <linearGradient id="pdImp" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#00A87E" stopOpacity={0.2} /><stop offset="100%" stopColor="#00A87E" stopOpacity={0} /></linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#E3E3E3" /><XAxis dataKey="day" tick={{ fontSize: 11, fill: '#757575' }} /><YAxis tick={{ fontSize: 11, fill: '#757575' }} tickFormatter={(v) => formatFollowers(v)} /><Tooltip formatter={(v: number) => formatFollowers(v)} />
-                <Area type="monotone" dataKey="impressions" name="Impressions" stroke="#00A87E" strokeWidth={2} fill="url(#pdImp)" />
-                <Area type="monotone" dataKey="reach" name="Reach" stroke="#025FCC" strokeWidth={2} fill="url(#pdReach)" />
-              </AreaChart></ResponsiveContainer></div>
-            </DemoCard>
+          {/* comments (real) */}
+          <div className="grid grid-cols-1 gap-6">
             <DemoCard>
-              <SectionTitle title="Engagement mix" />
-              <div className="mt-2 h-52"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={engagement} dataKey="value" nameKey="name" innerRadius={45} outerRadius={75} paddingAngle={3}>{engagement.map((_, i) => <Cell key={i} fill={CHART_COLORS[i]} />)}</Pie><Tooltip /></PieChart></ResponsiveContainer></div>
-              <div className="flex flex-wrap justify-center gap-x-4 gap-y-1 text-xs text-neutral-700">{engagement.map((e, i) => <span key={e.name} className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full" style={{ background: CHART_COLORS[i] }} /> {e.name}</span>)}</div>
-            </DemoCard>
-          </div>
-
-          {/* reactions + reach by platform */}
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-            <DemoCard>
-              <SectionTitle title="Reactions" subtitle={`${formatFollowers(totalReactions)} total`} />
-              <div className="mt-3 h-40"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={reactionData} dataKey="value" innerRadius={38} outerRadius={62} paddingAngle={2}>{reactionData.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}</Pie><Tooltip /></PieChart></ResponsiveContainer></div>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {reactionData.map((r) => (
-                  <span key={r.key} className="flex items-center gap-1 rounded-full border border-neutral-200 px-2.5 py-1 text-sm text-neutral-600">
-                    <span>{r.emoji}</span> {formatFollowers(r.value)}
-                  </span>
-                ))}
-              </div>
-            </DemoCard>
-            <DemoCard>
-              <SectionTitle title="Traffic sources" subtitle="Where reach came from" />
-              <div className="mt-4 flex flex-col gap-2.5">
-                {a.trafficSources.map((s) => {
-                  const pct = Math.round((s.value / a.reach) * 100);
-                  return (
-                    <div key={s.name}>
-                      <div className="mb-1 flex justify-between text-sm"><span className="text-neutral-700">{s.name}</span><span className="font-medium text-neutral-800">{pct}%</span></div>
-                      <div className="h-2 w-full rounded-full bg-neutral-200"><div className="h-2 rounded-full bg-primary-800" style={{ width: `${pct}%` }} /></div>
-                    </div>
-                  );
-                })}
-              </div>
-            </DemoCard>
-            <DemoCard>
-              <SectionTitle title="Reach by platform" />
-              <div className="mt-4 h-56"><ResponsiveContainer width="100%" height="100%"><BarChart data={a.perPlatform.map((pp) => ({ name: getPlatform(pp.platform).name, reach: pp.reach }))} margin={{ left: -10 }}><CartesianGrid strokeDasharray="3 3" stroke="#E3E3E3" /><XAxis dataKey="name" tick={{ fontSize: 11, fill: '#757575' }} /><YAxis tick={{ fontSize: 11, fill: '#757575' }} tickFormatter={(v) => formatFollowers(v)} /><Tooltip formatter={(v: number) => formatFollowers(v)} /><Bar dataKey="reach" radius={[6, 6, 0, 0]}>{a.perPlatform.map((pp) => <Cell key={pp.platform} fill={platformChartColor(pp.platform)} />)}</Bar></BarChart></ResponsiveContainer></div>
-            </DemoCard>
-          </div>
-
-          {/* audience demographics + engagement by hour */}
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-            <DemoCard>
-              <SectionTitle title="Audience age" subtitle="Who this post reached" />
-              <div className="mt-4 h-52"><ResponsiveContainer width="100%" height="100%"><BarChart data={a.age} margin={{ left: -22 }}><CartesianGrid strokeDasharray="3 3" stroke="#E3E3E3" /><XAxis dataKey="label" tick={{ fontSize: 11, fill: '#757575' }} /><YAxis tick={{ fontSize: 11, fill: '#757575' }} tickFormatter={(v) => `${v}%`} /><Tooltip formatter={(v: number) => `${v}%`} /><Bar dataKey="value" radius={[6, 6, 0, 0]} fill="#025FCC" /></BarChart></ResponsiveContainer></div>
-            </DemoCard>
-            <DemoCard>
-              <SectionTitle title="Gender split" />
-              <div className="mt-2 h-40"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={a.gender} dataKey="value" nameKey="label" innerRadius={42} outerRadius={68} paddingAngle={3}>{a.gender.map((_, i) => <Cell key={i} fill={['#025FCC', '#DB2777'][i]} />)}</Pie><Tooltip formatter={(v: number) => `${v}%`} /></PieChart></ResponsiveContainer></div>
-              <div className="flex justify-center gap-4 text-xs text-neutral-700">{a.gender.map((g, i) => <span key={g.label} className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full" style={{ background: ['#025FCC', '#DB2777'][i] }} /> {g.label} {g.value}%</span>)}</div>
-            </DemoCard>
-            <DemoCard>
-              <SectionTitle title="Engagement by hour" subtitle={`Peaks around ${a.topHour}`} />
-              <div className="mt-4 h-52"><ResponsiveContainer width="100%" height="100%"><AreaChart data={a.hourly} margin={{ left: -24, top: 8 }}><defs><linearGradient id="pdHour" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#7C3AED" stopOpacity={0.35} /><stop offset="100%" stopColor="#7C3AED" stopOpacity={0} /></linearGradient></defs><CartesianGrid strokeDasharray="3 3" stroke="#E3E3E3" /><XAxis dataKey="hour" tick={{ fontSize: 10, fill: '#757575' }} interval={1} /><YAxis tick={{ fontSize: 11, fill: '#757575' }} /><Tooltip /><Area type="monotone" dataKey="engagements" stroke="#7C3AED" strokeWidth={2} fill="url(#pdHour)" /></AreaChart></ResponsiveContainer></div>
-            </DemoCard>
-          </div>
-
-          {/* comments + per-platform table */}
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-            <DemoCard className="lg:col-span-2">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <SectionTitle title="Comments" subtitle={`${comments.length} comments · ${blocked.length} blocked`} />
                 {/* access role */}
@@ -330,18 +318,6 @@ export default function PostDetail() {
                 })}
               </div>
             </DemoCard>
-            <DemoCard className="p-0">
-              <p className="border-b border-neutral-200 px-5 py-3 font-Sora text-sm font-semibold">Per-platform</p>
-              <table className="w-full text-left text-sm"><tbody className="divide-y divide-neutral-200">
-                {a.perPlatform.map((pp) => (
-                  <tr key={pp.platform}>
-                    <td className="px-5 py-3"><span className="flex items-center gap-2"><PlatformChip platform={pp.platform} /> {getPlatform(pp.platform).name}</span></td>
-                    <td className="px-5 py-3 text-neutral-700"><span className="flex items-center gap-1"><Eye size={13} /> {formatFollowers(pp.reach)}</span></td>
-                    <td className="px-5 py-3 text-neutral-700"><span className="flex items-center gap-1"><TrendingUp size={13} /> {pp.engagement}%</span></td>
-                  </tr>
-                ))}
-              </tbody></table>
-            </DemoCard>
           </div>
         </>
       )}
@@ -393,4 +369,11 @@ const Tile = ({ icon: Icon, tint, label, value }: { icon: typeof Eye; tint: stri
       <p className="truncate text-xs text-neutral-500">{label}</p>
     </div>
   </DemoCard>
+);
+
+const LiveStat = ({ label, value }: { label: string; value: string }) => (
+  <div className="rounded-lg border border-warnings-success/20 bg-white p-3">
+    <p className="font-Sora text-xl font-semibold text-text-dark">{value}</p>
+    <p className="text-xs text-neutral-500">{label}</p>
+  </div>
 );

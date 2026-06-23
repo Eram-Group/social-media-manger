@@ -10,7 +10,7 @@ export const META = {
   appSecret: process.env.META_APP_SECRET || '',
   // Graph API version. Bump this if Meta deprecates the default. Override with
   // META_GRAPH_VERSION in env.
-  graphVersion: process.env.META_GRAPH_VERSION || 'v21.0',
+  graphVersion: process.env.META_GRAPH_VERSION || 'v22.0',
 };
 
 // The OAuth redirect URI for a platform. This EXACT string must be added to the

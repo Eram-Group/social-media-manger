@@ -36,6 +36,36 @@ export async function graphPost<T = any>(path: string, body: Record<string, stri
   return resp.json();
 }
 
+// Multipart POST — used to upload raw image bytes (e.g. /{page}/photos with `source`).
+export async function graphPostForm<T = any>(path: string, form: FormData): Promise<T> {
+  const resp = await fetch(graphUrl(path), { method: 'POST', body: form, cache: 'no-store' });
+  if (!resp.ok) throw new Error(`Graph POST ${path} failed: ${await readError(resp)}`);
+  return resp.json();
+}
+
+export async function graphDelete<T = any>(path: string, params: Record<string, string>): Promise<T> {
+  const qs = new URLSearchParams(params).toString();
+  const resp = await fetch(`${graphUrl(path)}?${qs}`, { method: 'DELETE', cache: 'no-store' });
+  if (!resp.ok) throw new Error(`Graph DELETE ${path} failed: ${await readError(resp)}`);
+  return resp.json();
+}
+
+// Upload raw bytes to a Meta resumable-upload URL (rupload.facebook.com),
+// used by Reels and video Stories.
+export async function ruploadBytes(uploadUrl: string, token: string, bytes: ArrayBuffer): Promise<void> {
+  const resp = await fetch(uploadUrl, {
+    method: 'POST',
+    headers: {
+      Authorization: `OAuth ${token}`,
+      offset: '0',
+      file_size: String(bytes.byteLength),
+    },
+    body: bytes,
+    cache: 'no-store',
+  });
+  if (!resp.ok) throw new Error(`Resumable upload failed: ${await readError(resp)}`);
+}
+
 // Build the Facebook Login OAuth dialog URL.
 export function buildAuthUrl(redirect: string, scopes: string[], state: string): string {
   const qs = new URLSearchParams({
@@ -78,18 +108,100 @@ export interface MetaPage {
   fan_count?: number;
 }
 
-// Step 3: list the Pages this user administers (each comes with its own Page token).
-export async function getPages(userToken: string): Promise<MetaPage[]> {
-  const j = await graphGet<{ data: MetaPage[] }>('me/accounts', {
-    access_token: userToken,
-    fields: 'id,name,access_token,followers_count,fan_count',
-  });
-  return j.data ?? [];
+const PAGE_FIELDS = 'id,name,access_token,followers_count,fan_count';
+
+// Full chain: OAuth code -> long-lived user token.
+export async function codeToUserToken(code: string, redirect: string): Promise<string> {
+  const shortToken = await exchangeCodeForUserToken(code, redirect);
+  return getLongLivedUserToken(shortToken);
 }
 
-// Full chain: OAuth code -> the list of Pages with permanent Page tokens.
-export async function codeToPages(code: string, redirect: string): Promise<MetaPage[]> {
-  const shortToken = await exchangeCodeForUserToken(code, redirect);
-  const longToken = await getLongLivedUserToken(shortToken);
-  return getPages(longToken);
+// Source 1: classic edge — Pages where the user has a direct ("Facebook access") role.
+async function pagesFromMeAccounts(userToken: string): Promise<MetaPage[]> {
+  try {
+    const j = await graphGet<{ data: MetaPage[] }>('me/accounts', {
+      access_token: userToken,
+      fields: PAGE_FIELDS,
+      limit: '100',
+    });
+    return j.data ?? [];
+  } catch (e) {
+    console.warn('[meta] /me/accounts failed:', (e as Error).message);
+    return [];
+  }
+}
+
+// Source 2: Business-owned / New Pages Experience Pages reached via the user's
+// Businesses (owned + client pages). Needs business_management to enumerate.
+async function pagesFromBusinesses(userToken: string): Promise<MetaPage[]> {
+  const found = new Map<string, MetaPage>();
+  let businesses: { id: string; name?: string }[] = [];
+  try {
+    const j = await graphGet<{ data: { id: string; name?: string }[] }>('me/businesses', {
+      access_token: userToken,
+      fields: 'id,name',
+      limit: '100',
+    });
+    businesses = j.data ?? [];
+  } catch (e) {
+    console.warn('[meta] /me/businesses failed (business_management not granted?):', (e as Error).message);
+    return [];
+  }
+  console.warn(`[meta] found ${businesses.length} business(es): ${businesses.map((b) => b.name || b.id).join(', ')}`);
+
+  for (const b of businesses) {
+    for (const edge of ['owned_pages', 'client_pages']) {
+      try {
+        const r = await graphGet<{ data: MetaPage[] }>(`${b.id}/${edge}`, {
+          access_token: userToken,
+          fields: PAGE_FIELDS,
+          limit: '100',
+        });
+        const list = r.data ?? [];
+        console.warn(`[meta] ${b.id}/${edge} -> ${list.length} page(s)`);
+        for (const p of list) found.set(p.id, p);
+      } catch (e) {
+        console.warn(`[meta] ${b.id}/${edge} failed:`, (e as Error).message);
+      }
+    }
+  }
+  return [...found.values()];
+}
+
+// A Page reached via a Business may not include a token in the list response.
+// Fetch one directly with the user token (works when the user has page access).
+async function ensurePageToken(page: MetaPage, userToken: string): Promise<MetaPage> {
+  if (page.access_token) return page;
+  try {
+    const r = await graphGet<MetaPage>(`${page.id}`, { access_token: userToken, fields: PAGE_FIELDS });
+    return { ...page, ...r };
+  } catch (e) {
+    console.warn(`[meta] could not fetch token for page ${page.id}:`, (e as Error).message);
+    return page;
+  }
+}
+
+// Robust discovery: try the personal edge first, then fall back to Businesses.
+export async function discoverPages(userToken: string): Promise<MetaPage[]> {
+  let pages = await pagesFromMeAccounts(userToken);
+  console.warn(`[meta] /me/accounts -> ${pages.length} page(s)`);
+
+  if (!pages.length) {
+    const bizPages = await pagesFromBusinesses(userToken);
+    const withTokens = await Promise.all(bizPages.map((p) => ensurePageToken(p, userToken)));
+    pages = withTokens.filter((p) => p.access_token);
+    console.warn(`[meta] business fallback -> ${bizPages.length} page(s), ${pages.length} with a usable token`);
+  }
+
+  if (!pages.length) {
+    try {
+      const perms = await graphGet<{ data: { permission: string; status: string }[] }>('me/permissions', {
+        access_token: userToken,
+      });
+      console.warn('[meta] still 0 pages. Granted permissions:', JSON.stringify(perms.data));
+    } catch {
+      /* ignore */
+    }
+  }
+  return pages;
 }
