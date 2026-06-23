@@ -34,6 +34,7 @@ export default function Accounts() {
   const [confirmRemove, setConfirmRemove] = useState<ConnectedAccount | null>(null);
   const [banner, setBanner] = useState<{ tone: 'success' | 'error'; text: string } | null>(null);
   const [filter, setFilter] = useState<'all' | TPlatformId>('all');
+  const [metrics, setMetrics] = useState<any>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -45,6 +46,11 @@ export default function Accounts() {
     } finally {
       setLoading(false);
     }
+    // Real derived metrics (followers, engagement, avg likes/comments, demographics).
+    fetch('/api/metrics', { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((d) => setMetrics(d))
+      .catch(() => setMetrics(null));
   }, []);
   useEffect(() => { load(); }, [load]);
 
@@ -67,23 +73,31 @@ export default function Accounts() {
   const byPlatform = (p: TPlatformId) => accounts.find((a) => a.platform === p);
   const totalFollowers = accounts.reduce((s, a) => s + (a.followers ?? 0), 0);
 
-  // Metrics overview stat cards (respect the platform filter).
+  // Metrics overview cards — real derived data from /api/metrics.
   const metricCards = useMemo(() => {
+    const g = metrics?.general;
     if (filter === 'all') {
-      const cards = [
+      return [
         { label: 'Connected accounts', value: String(accounts.length) },
-        { label: 'Total followers', value: formatFollowers(totalFollowers) },
+        { label: 'Total followers', value: formatFollowers(g?.general_follower_count ?? totalFollowers) },
+        { label: 'Avg. engagement', value: `${g?.avg_engagement_rate_percentage ?? 0}%` },
+        { label: 'Avg. comments', value: formatFollowers(g?.total_avg_comments ?? 0) },
       ];
-      for (const a of accounts) cards.push({ label: `${getPlatform(a.platform).name} followers`, value: formatFollowers(a.followers ?? 0) });
-      return cards;
     }
-    const a = byPlatform(filter);
-    return [
-      { label: 'Followers', value: a ? formatFollowers(a.followers ?? 0) : '—' },
-      { label: 'Account', value: a?.name ?? 'Not connected' },
-      { label: 'Status', value: a ? 'Connected' : 'Not connected' },
+    const pm = (filter === 'facebook' ? metrics?.facebook : metrics?.instagram)?.[0];
+    const cards = [
+      { label: 'Followers', value: pm ? formatFollowers(pm.followers_count ?? 0) : '—' },
+      { label: 'Engagement rate', value: pm ? `${pm.engagement_rate_percentage ?? 0}%` : '—' },
+      { label: 'Avg. likes', value: pm ? formatFollowers(pm.avg_likes ?? 0) : '—' },
+      { label: 'Avg. comments', value: pm ? formatFollowers(pm.avg_comments ?? 0) : '—' },
     ];
-  }, [filter, accounts, totalFollowers]);
+    if (filter === 'instagram' && pm?.top_age_percentage) {
+      cards.push({ label: 'Top age', value: `${pm.top_age_percentage.label} (${pm.top_age_percentage.percentage}%)` });
+      if (pm.top_gender_percentage) cards.push({ label: 'Top gender', value: `${pm.top_gender_percentage.label} (${pm.top_gender_percentage.percentage}%)` });
+      if (pm.top_country_percentage) cards.push({ label: 'Top country', value: `${pm.top_country_percentage.label} (${pm.top_country_percentage.percentage}%)` });
+    }
+    return cards;
+  }, [filter, accounts, totalFollowers, metrics]);
 
   const connectedPlatforms = accounts.map((a) => a.platform);
 
