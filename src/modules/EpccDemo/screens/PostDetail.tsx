@@ -1,6 +1,9 @@
+'use client';
+
 import { useState } from 'react';
 import { AnimatePresence } from 'framer-motion';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import Link from 'next/link';
+import { useParams, useRouter } from 'next/navigation';
 import {
   ResponsiveContainer, AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, Tooltip, CartesianGrid,
@@ -38,8 +41,8 @@ const SEED_COMMENTS: IComment[] = [
 ];
 
 export default function PostDetail() {
-  const { id } = useParams();
-  const navigate = useNavigate();
+  const { id } = useParams<{ id: string }>();
+  const router = useRouter();
   const { posts, deletePost } = usePosts();
   const post = posts.find((p) => p.id === id);
 
@@ -63,7 +66,7 @@ export default function PostDetail() {
     return (
       <div className="flex flex-col items-center gap-4 py-20 text-center">
         <p className="text-neutral-600">This post no longer exists.</p>
-        <Link to={EPCC_ROUTES.POSTS} className="text-sm font-medium text-primary-800 hover:underline">← Back to Posts</Link>
+        <Link href={EPCC_ROUTES.POSTS} className="text-sm font-medium text-primary-800 hover:underline">← Back to Posts</Link>
       </div>
     );
   }
@@ -100,14 +103,14 @@ export default function PostDetail() {
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex items-center gap-3">
-          <button onClick={() => navigate(EPCC_ROUTES.POSTS)} className="flex h-9 w-9 items-center justify-center rounded-lg border border-neutral-300 text-neutral-700 hover:bg-neutral-100"><ArrowLeft size={16} /></button>
+          <button onClick={() => router.push(EPCC_ROUTES.POSTS)} className="flex h-9 w-9 items-center justify-center rounded-lg border border-neutral-300 text-neutral-700 hover:bg-neutral-100"><ArrowLeft size={16} /></button>
           <SectionTitle title="Post analytics" subtitle={`${post.date} · ${post.time}`} />
         </div>
         <div className="flex flex-wrap gap-2">
           {post.platforms.length > 0 && <button onClick={() => setPreviewOpen(true)} className="flex items-center gap-2 rounded-lg bg-primary-800 px-4 py-2 text-sm font-medium text-white hover:bg-primary-900"><Smartphone size={15} /> Live preview</button>}
-          {post.status !== 'published' && <Link to={EPCC_ROUTES.POSTS} className="flex items-center gap-2 rounded-lg border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-800 hover:bg-neutral-100"><Pencil size={15} /> Manage</Link>}
-          <Link to={`${EPCC_ROUTES.PROMOTION}?post=${post.id}`} className="flex items-center gap-2 rounded-lg bg-secondary-200 px-4 py-2 text-sm font-medium text-primary-900 hover:shadow-1"><Megaphone size={15} /> Promote</Link>
-          <button onClick={() => { deletePost(post.id); navigate(EPCC_ROUTES.POSTS); }} className="flex items-center gap-2 rounded-lg bg-text-red/5 px-4 py-2 text-sm font-medium text-text-red hover:bg-text-red/10"><Trash2 size={15} /> Delete</button>
+          {post.status !== 'published' && <Link href={EPCC_ROUTES.POSTS} className="flex items-center gap-2 rounded-lg border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-800 hover:bg-neutral-100"><Pencil size={15} /> Manage</Link>}
+          <Link href={`${EPCC_ROUTES.PROMOTION}?post=${post.id}`} className="flex items-center gap-2 rounded-lg bg-secondary-200 px-4 py-2 text-sm font-medium text-primary-900 hover:shadow-1"><Megaphone size={15} /> Promote</Link>
+          <button onClick={() => { deletePost(post.id); router.push(EPCC_ROUTES.POSTS); }} className="flex items-center gap-2 rounded-lg bg-text-red/5 px-4 py-2 text-sm font-medium text-text-red hover:bg-text-red/10"><Trash2 size={15} /> Delete</button>
         </div>
       </div>
 

@@ -1,5 +1,7 @@
+'use client';
+
 import { useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Button } from '@UI/index';
 import { cn } from '@/shadecn/lib/utils';
@@ -25,7 +27,7 @@ const Q = ['Post', 'Objective', 'Audience'];
 
 export default function Promotion() {
   const { posts } = usePosts();
-  const [params] = useSearchParams();
+  const params = useSearchParams();
   const promotable = posts.filter((p) => p.status !== 'draft');
   const preselect = params.get('post');
   const initialPostId = preselect && promotable.some((p) => p.id === preselect) ? preselect : promotable[0]?.id ?? '';

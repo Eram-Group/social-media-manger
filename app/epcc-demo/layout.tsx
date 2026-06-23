@@ -1,5 +1,8 @@
+'use client';
+
 import { useEffect, useRef, useState } from 'react';
-import { NavLink, Outlet, useLocation } from 'react-router-dom';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   LayoutDashboard,
@@ -17,10 +20,10 @@ import {
   X,
 } from 'lucide-react';
 import { cn } from '@/shadecn/lib/utils';
-import { EPCC_ROUTES } from './routes';
+import { EPCC_ROUTES } from '@/modules/EpccDemo/routes';
 import { PostsProvider } from '@/mock-server/posts-store';
 import { AiChatProvider } from '@/mock-server/ai-chat-store';
-import AiAssistantWidget from './_components/AiAssistantWidget';
+import AiAssistantWidget from '@/modules/EpccDemo/_components/AiAssistantWidget';
 
 const NAV = [
   { to: EPCC_ROUTES.COMMAND_CENTER, label: 'Command Center', icon: LayoutDashboard },
@@ -35,15 +38,17 @@ const NAV = [
   { to: EPCC_ROUTES.SUPPORT, label: 'Support', icon: Headset },
 ];
 
-export default function EpccDemoLayout() {
-  const location = useLocation();
+export default function EpccDemoLayout({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
   const [navOpen, setNavOpen] = useState(false);
   const mainRef = useRef<HTMLElement>(null);
   // Close the mobile drawer whenever the route changes.
-  useEffect(() => { setNavOpen(false); }, [location.pathname]);
+  useEffect(() => { setNavOpen(false); }, [pathname]);
   // Scroll the content area back to the top on every route change, so a new
   // page never opens already scrolled down from the previous one.
-  useEffect(() => { mainRef.current?.scrollTo({ top: 0 }); }, [location.pathname]);
+  useEffect(() => { mainRef.current?.scrollTo({ top: 0 }); }, [pathname]);
+
+  const isActive = (to: string) => pathname === to || pathname.startsWith(`${to}/`);
 
   return (
     <PostsProvider>
@@ -78,18 +83,16 @@ export default function EpccDemoLayout() {
 
         <nav className="mt-2 flex flex-1 flex-col gap-1 overflow-y-auto px-3">
           {NAV.map(({ to, label, icon: Icon }) => (
-            <NavLink
+            <Link
               key={to}
-              to={to}
-              className={({ isActive }) =>
-                cn(
-                  'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors',
-                  isActive ? 'bg-secondary-200 font-medium text-primary-900' : 'text-neutral-700 hover:bg-neutral-100',
-                )
-              }>
+              href={to}
+              className={cn(
+                'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors',
+                isActive(to) ? 'bg-secondary-200 font-medium text-primary-900' : 'text-neutral-700 hover:bg-neutral-100',
+              )}>
               <Icon size={18} />
               {label}
-            </NavLink>
+            </Link>
           ))}
         </nav>
 
@@ -118,12 +121,12 @@ export default function EpccDemoLayout() {
         <main ref={mainRef} className="flex-1 overflow-y-auto px-4 py-5 sm:px-6 lg:px-8 lg:py-6">
           <AnimatePresence mode="wait">
             <motion.div
-              key={location.pathname}
+              key={pathname}
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}>
-              <Outlet />
+              {children}
             </motion.div>
           </AnimatePresence>
         </main>

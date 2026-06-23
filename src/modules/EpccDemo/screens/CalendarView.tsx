@@ -1,5 +1,7 @@
+'use client';
+
 import { useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 import { AnimatePresence } from 'framer-motion';
 import {
   Bell, Megaphone, FileText, X, Heart, MessageCircle, Share2, Eye, Trash2,
@@ -33,9 +35,9 @@ type TCalView = 'week' | 'month' | 'queue';
 type TStatusFilter = 'all' | TPostStatus;
 
 export default function CalendarView() {
-  const navigate = useNavigate();
+  const router = useRouter();
   const { posts, updatePost, deletePost } = usePosts();
-  const createOn = (date: string) => navigate(`/epcc-demo/posts?create=1&date=${date}`);
+  const createOn = (date: string) => router.push(`/epcc-demo/posts?create=1&date=${date}`);
   const [selected, setSelected] = useState<IPost | null>(null);
   const [view, setView] = useState<TCalView>('month');
   const [statusFilter, setStatusFilter] = useState<TStatusFilter>('all');
@@ -207,7 +209,7 @@ export default function CalendarView() {
                 </div>
               )}
               <div className="mt-6 flex gap-3">
-                <button onClick={() => navigate(`/epcc-demo/posts/${selected.id}`)} className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-primary-800 py-2.5 text-sm font-semibold text-white hover:bg-primary-900"><Eye size={15} /> Open post details</button>
+                <button onClick={() => router.push(`/epcc-demo/posts/${selected.id}`)} className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-primary-800 py-2.5 text-sm font-semibold text-white hover:bg-primary-900"><Eye size={15} /> Open post details</button>
                 <button onClick={() => { deletePost(selected.id); setSelected(null); }} className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-text-red/5 py-2.5 text-sm font-medium text-text-red hover:bg-text-red/10"><Trash2 size={15} /> Delete</button>
               </div>
             </DrawerPanel>

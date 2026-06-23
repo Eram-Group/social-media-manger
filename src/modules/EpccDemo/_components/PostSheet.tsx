@@ -1,6 +1,9 @@
+'use client';
+
 import { useState } from 'react';
 import { AnimatePresence } from 'framer-motion';
-import { Link, useNavigate } from 'react-router-dom';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Eye, Heart, MessageCircle, Share2, X, ArrowRight, Pencil, Megaphone, Trash2, CalendarClock, Layers } from 'lucide-react';
 import { cn } from '@/shadecn/lib/utils';
 import { DemoCard, SectionTitle, StatusPill, PlatformChip, formatFollowers } from './ui';
@@ -16,7 +19,7 @@ const tone: Record<TPostStatus, 'success' | 'info' | 'caution'> = { published: '
 // Quick post sheet — rich details + Edit / Promote / Delete actions and a link to
 // the full analytics page. `onEdit` is optional (only the Posts workspace can edit).
 export default function PostSheet({ post, onClose, onEdit }: { post: IPost | null; onClose: () => void; onEdit?: (p: IPost) => void }) {
-  const navigate = useNavigate();
+  const router = useRouter();
   const { deletePost } = usePosts();
   const [confirmDel, setConfirmDel] = useState(false);
   const a = post ? getPostAnalytics(post) : null;
@@ -79,7 +82,7 @@ export default function PostSheet({ post, onClose, onEdit }: { post: IPost | nul
                       ))}
                     </div>
                   </div>
-                  <Link to={`/epcc-demo/posts/${post.id}`} onClick={close}
+                  <Link href={`/epcc-demo/posts/${post.id}`} onClick={close}
                     className="flex items-center justify-center gap-2 rounded-lg bg-primary-800 py-3 text-sm font-semibold text-white hover:bg-primary-900">
                     Open full analytics <ArrowRight size={16} />
                   </Link>
@@ -106,7 +109,7 @@ export default function PostSheet({ post, onClose, onEdit }: { post: IPost | nul
                     <button onClick={() => { onEdit(post); close(); }} className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-neutral-300 py-2.5 text-sm font-medium text-neutral-800 hover:bg-neutral-100"><Pencil size={15} /> Edit</button>
                   )}
                   {post.status !== 'draft' && (
-                    <button onClick={() => { navigate(`${EPCC_ROUTES.PROMOTION}?post=${post.id}`); close(); }} className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-secondary-200 py-2.5 text-sm font-medium text-primary-900 hover:shadow-1"><Megaphone size={15} /> Promote</button>
+                    <button onClick={() => { router.push(`${EPCC_ROUTES.PROMOTION}?post=${post.id}`); close(); }} className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-secondary-200 py-2.5 text-sm font-medium text-primary-900 hover:shadow-1"><Megaphone size={15} /> Promote</button>
                   )}
                   <button onClick={() => setConfirmDel(true)} className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-text-red/5 py-2.5 text-sm font-medium text-text-red hover:bg-text-red/10"><Trash2 size={15} /> Delete</button>
                 </div>
