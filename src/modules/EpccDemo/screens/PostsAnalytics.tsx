@@ -86,7 +86,10 @@ export default function PostsAnalytics() {
               } else if (ok.length && failed.length) {
                 message = `${verb} on ${ok.map((o) => getPlatform(o.platform).name).join(', ')}; ${failed.map((o) => `${getPlatform(o.platform).name}: ${o.error}`).join(', ')}`;
               } else {
-                message = `${verb} failed — ${failed.map((o) => `${getPlatform(o.platform).name}: ${o.error}`).join(', ')}`;
+                // Nothing published — keep it as a draft instead of a phantom
+                // "published" post, and surface the real reason.
+                message = `Couldn’t ${verb.toLowerCase()} — ${failed.map((o) => `${getPlatform(o.platform).name}: ${o.error}`).join(', ')}`;
+                finalPost = { ...post, status: 'draft', remoteRefs: undefined };
               }
             }
           }

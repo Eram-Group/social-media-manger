@@ -119,6 +119,19 @@ export default function Composer({
   });
   const save = async (action: TSaveAction) => {
     if (busy) return;
+    // Format requirements (only enforced when actually posting, not for drafts).
+    if (action !== 'draft') {
+      if (format === 'reel' && !(image && isVideo)) {
+        setNote({ kind: 'warn', text: 'A Reel needs a video — upload or generate one first.' });
+        setStep(1);
+        return;
+      }
+      if (format === 'story' && !image) {
+        setNote({ kind: 'warn', text: 'A Story needs an image or video — add media first.' });
+        setStep(1);
+        return;
+      }
+    }
     const status: IPost['status'] = action === 'publish' ? 'published' : action === 'schedule' ? 'scheduled' : 'draft';
     setBusy(action);
     try {
