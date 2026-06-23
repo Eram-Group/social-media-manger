@@ -9,13 +9,14 @@
 // "instagram_business_basic,instagram_business_content_publish".
 import { redirectUri } from '@/server/env';
 import { ConnectedAccount, PublishInput, PublishResult, SocialConnector } from './types';
-import { buildAuthUrl, codeToPages, graphGet, graphPost } from './meta';
+import { buildAuthUrl, codeToUserToken, discoverPages, graphGet, graphPost } from './meta';
 
 const DEFAULT_SCOPES = [
   'instagram_basic',
   'instagram_content_publish',
   'pages_show_list',
   'pages_read_engagement',
+  'business_management',
 ];
 
 function scopes(): string[] {
@@ -31,7 +32,8 @@ export const instagramConnector: SocialConnector = {
   },
 
   async exchangeCode(code: string): Promise<ConnectedAccount[]> {
-    const pages = await codeToPages(code, redirectUri('instagram'));
+    const userToken = await codeToUserToken(code, redirectUri('instagram'));
+    const pages = await discoverPages(userToken);
     const accounts: ConnectedAccount[] = [];
     for (const page of pages) {
       // Find the IG Business account linked to this Page.

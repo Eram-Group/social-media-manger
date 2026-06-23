@@ -4,9 +4,11 @@
 // Pages you administer without App Review.
 import { redirectUri } from '@/server/env';
 import { ConnectedAccount, PublishInput, PublishResult, SocialConnector } from './types';
-import { buildAuthUrl, codeToPages, graphPost } from './meta';
+import { buildAuthUrl, codeToUserToken, discoverPages, graphPost } from './meta';
 
-const SCOPES = ['pages_show_list', 'pages_read_engagement', 'pages_manage_posts'];
+// business_management lets us reach Pages owned via a Business / New Pages Experience
+// (which don't appear on the personal /me/accounts edge).
+const SCOPES = ['pages_show_list', 'pages_read_engagement', 'pages_manage_posts', 'business_management'];
 
 export const facebookConnector: SocialConnector = {
   id: 'facebook',
@@ -16,7 +18,8 @@ export const facebookConnector: SocialConnector = {
   },
 
   async exchangeCode(code: string): Promise<ConnectedAccount[]> {
-    const pages = await codeToPages(code, redirectUri('facebook'));
+    const userToken = await codeToUserToken(code, redirectUri('facebook'));
+    const pages = await discoverPages(userToken);
     return pages.map((p) => ({
       platform: 'facebook' as const,
       accountId: p.id,
