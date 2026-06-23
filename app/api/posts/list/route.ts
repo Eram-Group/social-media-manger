@@ -62,6 +62,30 @@ export async function GET() {
             remoteRefs: [{ platform: 'instagram', accountId: acc.accountId, remoteId: p.id, url: p.permalink }],
           });
         }
+        // Active (non-expired) Instagram stories live on a separate edge.
+        try {
+          const st = await graphGet<{ data: any[] }>(`${acc.accountId}/stories`, {
+            access_token: acc.accessToken,
+            fields: 'id,caption,timestamp,permalink,media_url,media_type',
+            limit: '50',
+          });
+          for (const p of st.data ?? []) {
+            posts.push({
+              id: p.id,
+              content: p.caption ?? '(story)',
+              platforms: ['instagram'],
+              date: (p.timestamp ?? '').slice(0, 10),
+              time: (p.timestamp ?? '').slice(11, 16),
+              status: 'published',
+              type: 'post',
+              format: 'story',
+              media: p.media_url ? [p.media_url] : undefined,
+              remoteRefs: [{ platform: 'instagram', accountId: acc.accountId, remoteId: p.id, url: p.permalink }],
+            });
+          }
+        } catch (e) {
+          console.warn(`[posts/list] IG stories failed:`, (e as Error).message);
+        }
       }
     } catch (e) {
       console.warn(`[posts/list] failed for ${acc.platform}:${acc.accountId}:`, (e as Error).message);
