@@ -29,8 +29,16 @@ export function PostsProvider({ children }: { children: ReactNode }) {
     setLoading(true);
     fetch('/api/posts/list', { cache: 'no-store' })
       .then((r) => r.json())
-      .then((d) => setPosts(d.posts ?? []))
-      .catch(() => setPosts([]))
+      .then((d) => {
+        const live: IPost[] = d.posts ?? [];
+        // Published posts are the platform's source of truth; keep only local
+        // drafts/scheduled (which don't exist on the platform yet) alongside them.
+        setPosts((prev) => {
+          const localUnpublished = prev.filter((p) => p.status !== 'published' && !p.remoteRefs?.length);
+          return [...localUnpublished, ...live];
+        });
+      })
+      .catch(() => setPosts((prev) => prev.filter((p) => p.status !== 'published')))
       .finally(() => setLoading(false));
   };
 
