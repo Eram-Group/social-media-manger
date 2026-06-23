@@ -1,23 +1,48 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getConnector, isSupported } from '@/server/connectors/registry';
-import { ConnectedAccount } from '@/server/connectors/types';
+import { ConnectedAccount, PublishInput } from '@/server/connectors/types';
 import { findAccount } from '@/server/store';
 
 // POST /api/posts/publish
-// Body: { platform, accountId, accessToken?, message?, imageUrl?, link?, scheduledPublishTime? }
+// Accepts either:
+//  - JSON: { platform, accountId, accessToken?, message?, imageUrl?, link?, scheduledPublishTime? }
+//  - multipart/form-data: same fields + an `image` file (raw bytes uploaded directly)
 //
 // The access token is resolved server-side from the stored connected account
-// (so the browser never handles it). Passing accessToken explicitly still works
-// for quick CLI testing.
+// (so the browser never handles it).
 export async function POST(req: NextRequest) {
-  let body: any;
+  let platform = '';
+  let accountId = '';
+  let accessToken: string | undefined;
+  const input: PublishInput = {};
+
+  const contentType = req.headers.get('content-type') || '';
   try {
-    body = await req.json();
+    if (contentType.includes('multipart/form-data')) {
+      const form = await req.formData();
+      platform = String(form.get('platform') || '');
+      accountId = String(form.get('accountId') || '');
+      accessToken = (form.get('accessToken') as string) || undefined;
+      input.message = (form.get('message') as string) || undefined;
+      input.link = (form.get('link') as string) || undefined;
+      const sched = form.get('scheduledPublishTime');
+      if (sched) input.scheduledPublishTime = Number(sched);
+      const file = form.get('image');
+      if (file instanceof Blob && file.size > 0) input.imageBlob = file;
+    } else {
+      const body = await req.json();
+      platform = body?.platform || '';
+      accountId = body?.accountId || '';
+      accessToken = body?.accessToken;
+      input.message = body?.message;
+      input.imageUrl = body?.imageUrl;
+      input.link = body?.link;
+      input.scheduledPublishTime = body?.scheduledPublishTime;
+    }
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
   }
 
-  const { platform, accountId, accessToken, message, imageUrl, link, scheduledPublishTime } = body ?? {};
   if (!platform || !isSupported(platform)) {
     return NextResponse.json({ error: `Missing or unsupported platform: ${platform}` }, { status: 400 });
   }
@@ -25,21 +50,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'accountId is required' }, { status: 400 });
   }
 
-  // Prefer the stored token; fall back to an explicit one in the body.
   const stored = await findAccount(platform, accountId);
   const token = accessToken || stored?.accessToken;
   if (!token) {
     return NextResponse.json({ error: 'No access token found for this account. Connect it first.' }, { status: 400 });
   }
 
-  const account: ConnectedAccount = { platform, accountId, accessToken: token, meta: stored?.meta };
+  const account: ConnectedAccount = { platform: platform as ConnectedAccount['platform'], accountId, accessToken: token, meta: stored?.meta };
   try {
-    const result = await getConnector(platform).publish(account, {
-      message,
-      imageUrl,
-      link,
-      scheduledPublishTime,
-    });
+    const result = await getConnector(platform).publish(account, input);
     return NextResponse.json({ ok: true, platform, result });
   } catch (e) {
     return NextResponse.json({ error: (e as Error).message }, { status: 500 });

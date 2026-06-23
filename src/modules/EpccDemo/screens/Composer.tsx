@@ -15,7 +15,7 @@ import { PLATFORMS, getPlatform, TPlatformId } from '@/mock-server/platforms';
 import { ACCOUNTS } from '@/mock-server/accounts';
 import { IPost, FORMAT_SUPPORT, PLATFORM_FIELDS, TPostFormat } from '@/mock-server/posts';
 import { SUGGESTED_SLOTS } from '@/mock-server/besttime';
-import { newPostId, mockPublishMetrics } from '@/mock-server/posts-store';
+import { newPostId } from '@/mock-server/posts-store';
 import { generatePost, generateImage, generateVideo, generateMeta, hasOpenAIKey } from '../_services/openai';
 
 type TSaveAction = 'draft' | 'schedule' | 'publish';
@@ -87,7 +87,6 @@ export default function Composer({
     id: initial?.id ?? newPostId(), content: content.trim(), platforms: selected, date, time,
     type: initial?.type ?? 'post', format, status,
     ...(image ? (isVideo ? { video: image } : { media: [image] }) : {}),
-    ...(status === 'published' ? mockPublishMetrics(selected) : {}),
   });
   const save = (action: TSaveAction) => {
     const status: IPost['status'] = action === 'publish' ? 'published' : action === 'schedule' ? 'scheduled' : 'draft';

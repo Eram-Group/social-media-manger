@@ -22,6 +22,7 @@ export interface ConnectedAccount {
 export interface PublishInput {
   message?: string;             // caption / text body
   imageUrl?: string;            // public URL of an image to attach
+  imageBlob?: Blob;             // raw image bytes (uploaded directly, no public URL needed)
   link?: string;               // optional link (text posts)
   scheduledPublishTime?: number; // unix seconds; if set + supported, schedule it
 }

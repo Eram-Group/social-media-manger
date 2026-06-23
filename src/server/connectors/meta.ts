@@ -36,6 +36,13 @@ export async function graphPost<T = any>(path: string, body: Record<string, stri
   return resp.json();
 }
 
+// Multipart POST — used to upload raw image bytes (e.g. /{page}/photos with `source`).
+export async function graphPostForm<T = any>(path: string, form: FormData): Promise<T> {
+  const resp = await fetch(graphUrl(path), { method: 'POST', body: form, cache: 'no-store' });
+  if (!resp.ok) throw new Error(`Graph POST ${path} failed: ${await readError(resp)}`);
+  return resp.json();
+}
+
 // Build the Facebook Login OAuth dialog URL.
 export function buildAuthUrl(redirect: string, scopes: string[], state: string): string {
   const qs = new URLSearchParams({

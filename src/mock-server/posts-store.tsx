@@ -1,16 +1,18 @@
-import { createContext, useContext, useState, ReactNode } from 'react';
-import { POSTS, IPost, TPostStatus } from './posts';
-import { TPlatformId } from './platforms';
+'use client';
 
-// Shared, mutable posts store so the Posts workspace, Calendar and Command Center
-// all reflect create / edit / delete in real time (demo state — resets on reload).
+import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { IPost, TPostStatus } from './posts';
+
+// Shared posts store. Posts are the REAL posts published on the connected
+// accounts (loaded from /api/posts/list) plus any created live in this session.
 
 interface IPostsCtx {
   posts: IPost[];
+  loading: boolean;
   addPost: (p: IPost) => void;
   updatePost: (p: IPost) => void;
   deletePost: (id: string) => void;
-  loadSample: () => void;
+  refresh: () => void;
   clearAll: () => void;
 }
 
@@ -19,25 +21,31 @@ const Ctx = createContext<IPostsCtx | null>(null);
 let seq = 1000;
 export const newPostId = () => `p_${seq++}`;
 
-// Mock analytics applied when a post is published from the composer.
-export const mockPublishMetrics = (platforms: TPlatformId[]) => {
-  const reach = 40000 + platforms.length * 16000;
-  return {
-    reach,
-    likes: Math.round(reach * 0.035),
-    comments: Math.round(reach * 0.002),
-    shares: Math.round(reach * 0.004),
-  };
-};
-
 export function PostsProvider({ children }: { children: ReactNode }) {
-  const [posts, setPosts] = useState<IPost[]>(POSTS);
+  const [posts, setPosts] = useState<IPost[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const refresh = () => {
+    setLoading(true);
+    fetch('/api/posts/list', { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((d) => setPosts(d.posts ?? []))
+      .catch(() => setPosts([]))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => { refresh(); }, []);
+
   const addPost = (p: IPost) => setPosts((prev) => [p, ...prev]);
   const updatePost = (p: IPost) => setPosts((prev) => prev.map((x) => (x.id === p.id ? p : x)));
   const deletePost = (id: string) => setPosts((prev) => prev.filter((x) => x.id !== id));
-  const loadSample = () => setPosts(POSTS);
   const clearAll = () => setPosts([]);
-  return <Ctx.Provider value={{ posts, addPost, updatePost, deletePost, loadSample, clearAll }}>{children}</Ctx.Provider>;
+
+  return (
+    <Ctx.Provider value={{ posts, loading, addPost, updatePost, deletePost, refresh, clearAll }}>
+      {children}
+    </Ctx.Provider>
+  );
 }
 
 export function usePosts(): IPostsCtx {

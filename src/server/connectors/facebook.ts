@@ -4,7 +4,7 @@
 // Pages you administer without App Review.
 import { redirectUri } from '@/server/env';
 import { ConnectedAccount, PublishInput, PublishResult, SocialConnector } from './types';
-import { buildAuthUrl, codeToUserToken, discoverPages, graphPost } from './meta';
+import { buildAuthUrl, codeToUserToken, discoverPages, graphPost, graphPostForm } from './meta';
 
 // business_management lets us reach Pages owned via a Business / New Pages Experience
 // (which don't appear on the personal /me/accounts edge).
@@ -33,7 +33,23 @@ export const facebookConnector: SocialConnector = {
   async publish(account: ConnectedAccount, input: PublishInput): Promise<PublishResult> {
     const scheduling = typeof input.scheduledPublishTime === 'number';
 
-    // Photo post -> /{page-id}/photos ; text/link post -> /{page-id}/feed
+    // Photo post from raw bytes -> upload directly via multipart `source`
+    // (no public URL needed — handles local uploads from the composer).
+    if (input.imageBlob) {
+      const form = new FormData();
+      form.append('source', input.imageBlob, 'upload.jpg');
+      if (input.message) form.append('caption', input.message);
+      form.append('access_token', account.accessToken);
+      if (scheduling) {
+        form.append('published', 'false');
+        form.append('scheduled_publish_time', String(input.scheduledPublishTime));
+      }
+      const res = await graphPostForm<{ id: string; post_id?: string }>(`${account.accountId}/photos`, form);
+      const remoteId = res.post_id || res.id;
+      return { remoteId, url: `https://www.facebook.com/${remoteId}`, raw: res };
+    }
+
+    // Photo post by public URL -> /{page-id}/photos ; text/link post -> /{page-id}/feed
     if (input.imageUrl) {
       const body: Record<string, string> = {
         url: input.imageUrl,

@@ -21,9 +21,18 @@ interface PublicAccount {
   name?: string;
 }
 
-// Only http(s) URLs can be sent to the platforms (local blob: previews can't).
-const publicImage = (post: IPost): string | undefined =>
-  post.media?.find((m) => /^https?:\/\//.test(m));
+const firstImage = (post: IPost): string | undefined => post.media?.[0];
+const isPublicUrl = (u?: string) => !!u && /^https?:\/\//.test(u);
+const isLocalImage = (u?: string) => !!u && (u.startsWith('blob:') || u.startsWith('data:'));
+
+// Fetch a local blob:/data: image back into a Blob so we can upload its bytes.
+async function imageBlob(url: string): Promise<Blob | null> {
+  try {
+    return await fetch(url).then((r) => r.blob());
+  } catch {
+    return null;
+  }
+}
 
 export async function publishPost(post: IPost): Promise<PublishOutcome[]> {
   const targets = post.platforms.filter((p) => SUPPORTED.includes(p));
@@ -37,7 +46,9 @@ export async function publishPost(post: IPost): Promise<PublishOutcome[]> {
     return targets.map((platform) => ({ platform, ok: false, error: 'Could not load connected accounts' }));
   }
 
-  const imageUrl = publicImage(post);
+  const img = firstImage(post);
+  // For a local upload, read the bytes once so we can send them to each platform.
+  const blob = isLocalImage(img) ? await imageBlob(img!) : null;
   const outcomes: PublishOutcome[] = [];
 
   for (const platform of targets) {
@@ -47,11 +58,22 @@ export async function publishPost(post: IPost): Promise<PublishOutcome[]> {
       continue;
     }
     try {
-      const res = await fetch('/api/posts/publish', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ platform, accountId: acct.accountId, message: post.content, imageUrl }),
-      });
+      let res: Response;
+      if (blob) {
+        // Multipart: upload the raw image bytes (works without a public URL).
+        const fd = new FormData();
+        fd.append('platform', platform);
+        fd.append('accountId', acct.accountId);
+        fd.append('message', post.content);
+        fd.append('image', blob, 'upload.jpg');
+        res = await fetch('/api/posts/publish', { method: 'POST', body: fd });
+      } else {
+        res = await fetch('/api/posts/publish', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ platform, accountId: acct.accountId, message: post.content, imageUrl: isPublicUrl(img) ? img : undefined }),
+        });
+      }
       const j = await res.json();
       if (res.ok && j.ok) {
         outcomes.push({ platform, accountId: acct.accountId, ok: true, remoteId: j.result.remoteId, url: j.result.url });

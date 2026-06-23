@@ -28,7 +28,7 @@ export default function PostsAnalytics() {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
-  const { posts, addPost, updatePost, deletePost, loadSample } = usePosts();
+  const { posts, addPost, updatePost, deletePost, refresh } = usePosts();
   const [view, setView] = useState<TView>(params.get('create') ? { mode: 'create' } : { mode: 'list' });
   const [viewMode, setViewMode] = useState<TViewMode>('table');
   const [open, setOpen] = useState<IPost | null>(null);
@@ -217,7 +217,7 @@ export default function PostsAnalytics() {
             </div>
             <div className="flex gap-3">
               <div className="w-40"><Button variant="primary" size="medium" leftIcon={<Plus size={16} />} onClick={() => setView({ mode: 'create' })}>New post</Button></div>
-              <div className="w-44"><Button variant="outline" size="medium" onClick={() => { loadSample(); flash('Sample data loaded'); }}>Load sample data</Button></div>
+              <div className="w-44"><Button variant="outline" size="medium" onClick={() => { refresh(); flash('Refreshed from your accounts'); }}>Refresh posts</Button></div>
             </div>
           </DemoCard>
         ) : (
