@@ -74,17 +74,18 @@ export default function PostDetail() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ref?.platform, ref?.accountId, ref?.remoteId]);
 
-  // Load real comments for this post from the connected account.
+  // Load real comments for THIS specific post directly (reliable for any post).
   useEffect(() => {
     if (!ref) { setComments([]); return; }
     let active = true;
-    fetch('/api/inbox', { cache: 'no-store' })
+    fetch(`/api/posts/comments?platform=${ref.platform}&accountId=${ref.accountId}&remoteId=${encodeURIComponent(ref.remoteId)}`, { cache: 'no-store' })
       .then((r) => r.json())
       .then((d) => {
         if (!active) return;
-        const real: IComment[] = (d.items ?? [])
-          .filter((it: any) => it.postId === ref.remoteId)
-          .map((it: any) => ({ id: it.id, name: it.author, platform: ref.platform, text: it.text, time: (it.time || '').slice(0, 10), likes: 0, replies: [] }));
+        const real: IComment[] = (d.comments ?? []).map((c: any) => ({
+          id: c.id, name: c.author, platform: ref.platform, text: c.text, time: (c.time || '').slice(0, 10), likes: c.likeCount ?? 0,
+          replies: (c.replies ?? []).map((rep: any) => ({ id: rep.id, text: `${rep.fromPage ? '' : rep.author + ': '}${rep.text}`, time: (rep.time || '').slice(0, 10), likes: 0 })),
+        }));
         setComments(real);
       })
       .catch(() => active && setComments([]));
