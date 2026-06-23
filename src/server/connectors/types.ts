@@ -52,4 +52,7 @@ export interface SocialConnector {
 
   // 3. Read-back (optional, added later for Reports/analytics).
   getMetrics?(account: ConnectedAccount, remoteId: string): Promise<Record<string, number>>;
+
+  // 4. Delete a published post from the platform.
+  deletePost?(account: ConnectedAccount, remoteId: string): Promise<void>;
 }

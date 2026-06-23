@@ -43,6 +43,13 @@ export async function graphPostForm<T = any>(path: string, form: FormData): Prom
   return resp.json();
 }
 
+export async function graphDelete<T = any>(path: string, params: Record<string, string>): Promise<T> {
+  const qs = new URLSearchParams(params).toString();
+  const resp = await fetch(`${graphUrl(path)}?${qs}`, { method: 'DELETE', cache: 'no-store' });
+  if (!resp.ok) throw new Error(`Graph DELETE ${path} failed: ${await readError(resp)}`);
+  return resp.json();
+}
+
 // Upload raw bytes to a Meta resumable-upload URL (rupload.facebook.com),
 // used by Reels and video Stories.
 export async function ruploadBytes(uploadUrl: string, token: string, bytes: ArrayBuffer): Promise<void> {

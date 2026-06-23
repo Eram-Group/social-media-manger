@@ -4,7 +4,7 @@
 // Pages you administer without App Review.
 import { redirectUri } from '@/server/env';
 import { ConnectedAccount, PublishInput, PublishResult, SocialConnector } from './types';
-import { buildAuthUrl, codeToUserToken, discoverPages, graphPost, graphPostForm, graphGet, ruploadBytes } from './meta';
+import { buildAuthUrl, codeToUserToken, discoverPages, graphPost, graphPostForm, graphGet, graphDelete, ruploadBytes } from './meta';
 
 // Publish a Reel (vertical video) via the 3-step video_reels flow.
 async function publishReel(pageId: string, token: string, video: Blob, description?: string): Promise<PublishResult> {
@@ -156,5 +156,9 @@ export const facebookConnector: SocialConnector = {
     }
     const res = await graphPost<{ id: string }>(`${account.accountId}/feed`, body);
     return { remoteId: res.id, url: `https://www.facebook.com/${res.id}`, raw: res };
+  },
+
+  async deletePost(account: ConnectedAccount, remoteId: string): Promise<void> {
+    await graphDelete(remoteId, { access_token: account.accessToken });
   },
 };

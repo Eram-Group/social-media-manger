@@ -31,14 +31,19 @@ export function PostsProvider({ children }: { children: ReactNode }) {
       .then((r) => r.json())
       .then((d) => {
         const live: IPost[] = d.posts ?? [];
-        // Published posts are the platform's source of truth; keep only local
-        // drafts/scheduled (which don't exist on the platform yet) alongside them.
         setPosts((prev) => {
-          const localUnpublished = prev.filter((p) => p.status !== 'published' && !p.remoteRefs?.length);
-          return [...localUnpublished, ...live];
+          // Keep local drafts/scheduled and any post created in-app that has
+          // remoteRefs (a real published post — possibly multi-platform, which we
+          // want to show as ONE row rather than split per platform).
+          const keepLocal = prev.filter((p) => p.status !== 'published' || (p.remoteRefs?.length ?? 0) > 0);
+          // remoteIds already represented by a kept local post — so we don't show
+          // the same post twice (once as the in-app row, once from the live feed).
+          const localRemoteIds = new Set(keepLocal.flatMap((p) => p.remoteRefs?.map((r) => r.remoteId) ?? []));
+          const liveOnly = live.filter((p) => !(p.remoteRefs ?? []).some((r) => localRemoteIds.has(r.remoteId)));
+          return [...keepLocal, ...liveOnly];
         });
       })
-      .catch(() => setPosts((prev) => prev.filter((p) => p.status !== 'published')))
+      .catch(() => {})
       .finally(() => setLoading(false));
   };
 
@@ -46,7 +51,21 @@ export function PostsProvider({ children }: { children: ReactNode }) {
 
   const addPost = (p: IPost) => setPosts((prev) => [p, ...prev]);
   const updatePost = (p: IPost) => setPosts((prev) => prev.map((x) => (x.id === p.id ? p : x)));
-  const deletePost = (id: string) => setPosts((prev) => prev.filter((x) => x.id !== id));
+  const deletePost = (id: string) => {
+    // Delete from the platform too (so it doesn't reappear on the next refresh).
+    setPosts((prev) => {
+      const target = prev.find((x) => x.id === id);
+      const refs = target?.remoteRefs ?? [];
+      if (refs.length) {
+        fetch('/api/posts/delete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refs }),
+        }).catch(() => {});
+      }
+      return prev.filter((x) => x.id !== id);
+    });
+  };
   const clearAll = () => setPosts([]);
 
   return (
