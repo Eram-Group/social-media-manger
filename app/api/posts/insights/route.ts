@@ -20,10 +20,17 @@ export async function GET(req: NextRequest) {
 
   try {
     if (platform === 'facebook') {
-      const node = await graphGet<any>(remoteId, {
-        access_token: token,
-        fields: 'permalink_url,created_time,message,shares,likes.summary(true).limit(0),comments.summary(true).limit(0)',
-      });
+      // Some objects (e.g. stories) reject the singular node fields query — don't
+      // let that fail the whole request; fall back to empty counts.
+      let node: any = {};
+      try {
+        node = await graphGet<any>(remoteId, {
+          access_token: token,
+          fields: 'permalink_url,created_time,message,shares,likes.summary(true).limit(0),comments.summary(true).limit(0)',
+        });
+      } catch (e) {
+        if (!/#12|deprecated|nonexisting field|Unsupported/i.test((e as Error).message)) throw e;
+      }
       const metrics: Record<string, number> = {
         likes: node?.likes?.summary?.total_count ?? 0,
         comments: node?.comments?.summary?.total_count ?? 0,
