@@ -30,6 +30,7 @@ const NAV = [
   { to: EPCC_ROUTES.ACCOUNTS, label: 'Accounts', icon: Share2 },
   { to: EPCC_ROUTES.POSTS, label: 'Posts', icon: PenSquare },
   { to: EPCC_ROUTES.CALENDAR, label: 'Calendar', icon: CalendarDays },
+  { to: EPCC_ROUTES.AUDIENCE, label: 'Audience Insights', icon: Users },
   { to: EPCC_ROUTES.REPORTS, label: 'Reports', icon: FileBarChart },
   { to: EPCC_ROUTES.PROMOTION, label: 'Paid Promotion', icon: Megaphone },
   { to: EPCC_ROUTES.INBOX, label: 'Inbox', icon: Inbox },
