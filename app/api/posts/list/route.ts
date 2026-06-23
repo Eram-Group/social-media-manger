@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { listAccounts } from '@/server/store';
+import { listAccounts, listHidden } from '@/server/store';
 import { graphGet } from '@/server/connectors/meta';
 import { IPost } from '@/mock-server/posts';
 
@@ -140,6 +140,13 @@ export async function GET() {
       groups.set(key, { ...p, platforms: [...p.platforms] });
     }
   }
-  const merged = [...groups.values()].sort((a, b) => `${b.date} ${b.time}`.localeCompare(`${a.date} ${a.time}`));
+  // Drop posts the user removed from the dashboard (e.g. Instagram, which can't
+  // be deleted via API). A grouped row is hidden only if ALL its refs are hidden.
+  const hidden = await listHidden();
+  const visible = [...groups.values()].filter((p) => {
+    const refs = p.remoteRefs ?? [];
+    return !refs.length || !refs.every((r) => hidden.has(r.remoteId));
+  });
+  const merged = visible.sort((a, b) => `${b.date} ${b.time}`.localeCompare(`${a.date} ${a.time}`));
   return NextResponse.json({ posts: merged });
 }

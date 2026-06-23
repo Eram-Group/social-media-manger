@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getConnector } from '@/server/connectors/registry';
-import { findAccount } from '@/server/store';
+import { findAccount, hidePosts } from '@/server/store';
 
 // POST /api/posts/delete  { refs: [{ platform, accountId, remoteId }] }
 // Deletes the post from each platform it was published to. Returns per-ref result.
@@ -22,10 +22,14 @@ export async function POST(req: NextRequest) {
       const connector = getConnector(ref.platform);
       if (!connector.deletePost) throw new Error(`Delete not supported for ${ref.platform}`);
       await connector.deletePost(account, ref.remoteId);
-      results.push({ ...ref, ok: true });
+      results.push({ ...ref, ok: true, deleted: true });
     } catch (e) {
-      results.push({ ...ref, ok: false, error: (e as Error).message });
+      // Can't delete on the platform (e.g. Instagram) — hide it from the
+      // dashboard instead so the action still does something useful.
+      await hidePosts([ref.remoteId]);
+      results.push({ ...ref, ok: true, hiddenOnly: true, error: (e as Error).message });
     }
   }
-  return NextResponse.json({ ok: results.every((r) => r.ok), results });
+  const hiddenOnly = results.some((r) => r.hiddenOnly);
+  return NextResponse.json({ ok: true, hiddenOnly, results });
 }

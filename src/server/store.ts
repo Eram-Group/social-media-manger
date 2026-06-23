@@ -131,3 +131,44 @@ export function toPublic(a: ConnectedAccount) {
   const { accessToken, ...safe } = a;
   return safe;
 }
+
+// ---- Hidden posts ----
+// Posts the user removed from the dashboard but that still exist on the platform
+// (e.g. Instagram, which can't be deleted via API). Persisted so they stay hidden.
+const HIDDEN_FILE = path.join(DATA_DIR, 'hidden-posts.json');
+
+async function hiddenSchema(db: any) {
+  await db`CREATE TABLE IF NOT EXISTS hidden_posts (remote_id text PRIMARY KEY)`;
+}
+
+export async function hidePosts(remoteIds: string[]): Promise<void> {
+  if (!remoteIds.length) return;
+  if (usingDb()) {
+    const db = await sql();
+    await hiddenSchema(db);
+    for (const id of remoteIds) await db`INSERT INTO hidden_posts (remote_id) VALUES (${id}) ON CONFLICT DO NOTHING`;
+    return;
+  }
+  const cur = await readHiddenFile();
+  await fs.mkdir(DATA_DIR, { recursive: true });
+  await fs.writeFile(HIDDEN_FILE, JSON.stringify([...new Set([...cur, ...remoteIds])]), 'utf8');
+}
+
+export async function listHidden(): Promise<Set<string>> {
+  if (usingDb()) {
+    const db = await sql();
+    await hiddenSchema(db);
+    const rows = await db`SELECT remote_id FROM hidden_posts`;
+    return new Set((rows as any[]).map((r) => r.remote_id));
+  }
+  return new Set(await readHiddenFile());
+}
+
+async function readHiddenFile(): Promise<string[]> {
+  try {
+    const p = JSON.parse(await fs.readFile(HIDDEN_FILE, 'utf8'));
+    return Array.isArray(p) ? p : [];
+  } catch {
+    return [];
+  }
+}

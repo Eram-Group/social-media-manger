@@ -126,8 +126,13 @@ export default function PostsAnalytics() {
     clearSel();
     const results = await Promise.all(ids.map((id) => deletePost(id)));
     const failed = results.filter((r) => !r.ok).length;
-    const ok = results.length - failed;
-    flash(failed ? `${ok} deleted · ${failed} couldn’t be deleted (e.g. Instagram)` : `${ok} post${ok > 1 ? 's' : ''} deleted ✓`);
+    const hidden = results.filter((r) => r.ok && r.hiddenOnly).length;
+    const deleted = results.filter((r) => r.ok && !r.hiddenOnly).length;
+    const parts = [];
+    if (deleted) parts.push(`${deleted} deleted`);
+    if (hidden) parts.push(`${hidden} removed from dashboard (still on Instagram)`);
+    if (failed) parts.push(`${failed} failed`);
+    flash(parts.join(' · ') || 'Done');
   };
   const bulkSchedule = () => { posts.filter((p) => sel.includes(p.id)).forEach((p) => updatePost({ ...p, status: 'scheduled' })); flash(`${sel.length} scheduled`); clearSel(); };
 
@@ -366,7 +371,7 @@ export default function PostsAnalytics() {
               <p className="mt-4 rounded-lg bg-neutral-100 p-3 text-sm text-neutral-700">{confirm.content}</p>
               <div className="mt-5 flex justify-end gap-3">
                 <div className="w-28"><Button variant="outline" size="medium" onClick={() => setConfirm(null)}>Cancel</Button></div>
-                <div className="w-36"><Button variant="destructive" size="medium" loading={deleting} disable={deleting} onClick={async () => { const p = confirm; setDeleting(true); const r = await deletePost(p.id); setDeleting(false); setConfirm(null); flash(r.ok ? 'Post deleted ✓' : r.errors[0] || 'Delete failed'); }}>Delete</Button></div>
+                <div className="w-36"><Button variant="destructive" size="medium" loading={deleting} disable={deleting} onClick={async () => { const p = confirm; setDeleting(true); const r = await deletePost(p.id); setDeleting(false); setConfirm(null); flash(!r.ok ? (r.errors[0] || 'Delete failed') : r.hiddenOnly ? 'Removed from dashboard (still live on Instagram)' : 'Post deleted ✓'); }}>Delete</Button></div>
               </div>
             </ModalPanel>
           </Backdrop>

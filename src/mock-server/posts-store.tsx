@@ -11,7 +11,7 @@ interface IPostsCtx {
   loading: boolean;
   addPost: (p: IPost) => void;
   updatePost: (p: IPost) => void;
-  deletePost: (id: string) => Promise<{ ok: boolean; errors: string[] }>;
+  deletePost: (id: string) => Promise<{ ok: boolean; hiddenOnly: boolean; errors: string[] }>;
   refresh: () => void;
   clearAll: () => void;
 }
@@ -54,24 +54,24 @@ export function PostsProvider({ children }: { children: ReactNode }) {
 
   // Delete from the platform, then drop locally. Returns per-ref errors (e.g.
   // Instagram, which doesn't support deletion) so the UI can inform the user.
-  const deletePost = async (id: string): Promise<{ ok: boolean; errors: string[] }> => {
+  const deletePost = async (id: string): Promise<{ ok: boolean; hiddenOnly: boolean; errors: string[] }> => {
     const target = posts.find((x) => x.id === id);
     const refs = target?.remoteRefs ?? [];
-    let errors: string[] = [];
+    let ok = true; let hiddenOnly = false; const errors: string[] = [];
     if (refs.length) {
       try {
         const res = await fetch('/api/posts/delete', {
           method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ refs }),
         });
         const j = await res.json();
-        errors = (j.results ?? []).filter((r: any) => !r.ok).map((r: any) => r.error);
+        ok = j.ok;
+        hiddenOnly = Boolean(j.hiddenOnly);
       } catch (e) {
-        errors = [(e as Error).message];
+        ok = false; errors.push((e as Error).message);
       }
     }
-    // Remove locally only if it isn't still on a platform (so failed deletes stay visible).
-    if (!errors.length) setPosts((prev) => prev.filter((x) => x.id !== id));
-    return { ok: errors.length === 0, errors };
+    if (ok) setPosts((prev) => prev.filter((x) => x.id !== id));
+    return { ok, hiddenOnly, errors };
   };
   const clearAll = () => setPosts([]);
 
