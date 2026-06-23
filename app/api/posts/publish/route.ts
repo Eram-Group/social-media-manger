@@ -27,6 +27,8 @@ export async function POST(req: NextRequest) {
       input.link = (form.get('link') as string) || undefined;
       const sched = form.get('scheduledPublishTime');
       if (sched) input.scheduledPublishTime = Number(sched);
+      const fmt = form.get('format');
+      if (fmt) input.format = String(fmt) as any;
       const file = form.get('image');
       if (file instanceof Blob && file.size > 0) input.imageBlob = file;
       const video = form.get('video');
@@ -37,6 +39,7 @@ export async function POST(req: NextRequest) {
       accountId = body?.accountId || '';
       accessToken = body?.accessToken;
       input.message = body?.message;
+      input.format = body?.format;
       input.imageUrl = body?.imageUrl;
       input.videoUrl = body?.videoUrl;
       input.link = body?.link;

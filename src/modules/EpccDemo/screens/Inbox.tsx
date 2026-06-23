@@ -5,6 +5,14 @@ import { MessageCircle, ExternalLink, RefreshCw, Inbox as InboxIcon, Send, Check
 import { DemoCard, SectionTitle, PlatformChip } from '../_components/ui';
 import { TPlatformId } from '@/mock-server/platforms';
 
+interface InboxReply {
+  id: string;
+  author: string;
+  text: string;
+  time: string;
+  fromPage?: boolean;
+}
+
 interface InboxItem {
   id: string;
   platform: TPlatformId;
@@ -12,9 +20,11 @@ interface InboxItem {
   author: string;
   text: string;
   time: string;
+  likeCount?: number;
   postId: string;
   postExcerpt?: string;
   permalink?: string;
+  replies: InboxReply[];
 }
 
 const when = (iso: string) => {
@@ -55,6 +65,10 @@ export default function Inbox() {
       });
       const j = await res.json();
       if (res.ok && j.ok) {
+        const text = replyText.trim();
+        setItems((list) => list.map((it) => it.id === c.id
+          ? { ...it, replies: [...it.replies, { id: j.id || `local-${it.replies.length}`, author: 'You', text, time: '', fromPage: true }] }
+          : it));
         setReplied((m) => ({ ...m, [c.id]: true }));
         setReplyId(null);
         setReplyText('');
@@ -100,6 +114,20 @@ export default function Inbox() {
                 <span className="text-xs text-neutral-400">{when(c.time)}</span>
               </div>
               <p className="text-sm text-neutral-800">{c.text}</p>
+
+              {c.replies?.length > 0 && (
+                <div className="flex flex-col gap-2 border-l-2 border-neutral-200 pl-3">
+                  {c.replies.map((rep) => (
+                    <div key={rep.id} className="flex flex-col">
+                      <span className={rep.fromPage ? 'text-xs font-semibold text-primary-800' : 'text-xs font-semibold text-neutral-700'}>
+                        {rep.fromPage ? 'You (Page)' : rep.author}
+                      </span>
+                      <span className="text-sm text-neutral-700">{rep.text}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
               <div className="flex items-center justify-between border-t border-neutral-100 pt-2">
                 {c.postExcerpt ? <span className="truncate text-xs text-neutral-400">on: {c.postExcerpt}…</span> : <span />}
                 <div className="flex shrink-0 items-center gap-3">

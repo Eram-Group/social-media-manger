@@ -29,25 +29,29 @@ export async function GET(req: NextRequest) {
         comments: node?.comments?.summary?.total_count ?? 0,
         shares: node?.shares?.count ?? 0,
       };
-      // Reach/impressions are best-effort — metric names change and may be unavailable.
+      const reactions: Record<string, number> = {};
+      // Pull every post insight metric Meta still exposes (impressions/reach removed).
       try {
-        const ins = await graphGet<{ data: { name: string; values: { value: number }[] }[] }>(`${remoteId}/insights`, {
+        const ins = await graphGet<{ data: { name: string; values: { value: any }[] }[] }>(`${remoteId}/insights`, {
           access_token: token,
-          metric: 'post_impressions,post_impressions_unique,post_engaged_users',
+          metric: 'post_reactions_by_type_total,post_clicks,post_video_views,post_activity_by_action_type',
         });
         for (const m of ins.data ?? []) {
-          const v = m.values?.[0]?.value ?? 0;
-          if (m.name === 'post_impressions') metrics.impressions = v;
-          if (m.name === 'post_impressions_unique') metrics.reach = v;
-          if (m.name === 'post_engaged_users') metrics.engagedUsers = v;
+          const v = m.values?.[0]?.value;
+          if (m.name === 'post_clicks') metrics.clicks = Number(v) || 0;
+          if (m.name === 'post_video_views') metrics.videoViews = Number(v) || 0;
+          if (m.name === 'post_reactions_by_type_total' && v && typeof v === 'object') {
+            Object.assign(reactions, v); // { like, love, wow, haha, ... }
+          }
         }
       } catch {
-        /* insights metric unavailable — keep engagement counts only */
+        /* insights unavailable — keep engagement counts only */
       }
       return NextResponse.json({
         ok: true,
         platform,
         metrics,
+        reactions,
         permalink: node?.permalink_url,
         message: node?.message,
         createdTime: node?.created_time,

@@ -69,6 +69,7 @@ export async function publishPost(post: IPost, scheduledPublishTime?: number): P
         fd.append('platform', platform);
         fd.append('accountId', acct.accountId);
         fd.append('message', post.content);
+        if (post.format) fd.append('format', post.format);
         if (vidBlob) fd.append('video', vidBlob, 'upload.mp4');
         else if (imgBlob) fd.append('image', imgBlob, 'upload.jpg');
         if (scheduledPublishTime) fd.append('scheduledPublishTime', String(scheduledPublishTime));
@@ -78,7 +79,7 @@ export async function publishPost(post: IPost, scheduledPublishTime?: number): P
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            platform, accountId: acct.accountId, message: post.content,
+            platform, accountId: acct.accountId, message: post.content, format: post.format,
             imageUrl: isPublicUrl(img) ? img : undefined,
             videoUrl: isPublicUrl(vid) ? vid : undefined,
             scheduledPublishTime,

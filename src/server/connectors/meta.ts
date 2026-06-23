@@ -43,6 +43,22 @@ export async function graphPostForm<T = any>(path: string, form: FormData): Prom
   return resp.json();
 }
 
+// Upload raw bytes to a Meta resumable-upload URL (rupload.facebook.com),
+// used by Reels and video Stories.
+export async function ruploadBytes(uploadUrl: string, token: string, bytes: ArrayBuffer): Promise<void> {
+  const resp = await fetch(uploadUrl, {
+    method: 'POST',
+    headers: {
+      Authorization: `OAuth ${token}`,
+      offset: '0',
+      file_size: String(bytes.byteLength),
+    },
+    body: bytes,
+    cache: 'no-store',
+  });
+  if (!resp.ok) throw new Error(`Resumable upload failed: ${await readError(resp)}`);
+}
+
 // Build the Facebook Login OAuth dialog URL.
 export function buildAuthUrl(redirect: string, scopes: string[], state: string): string {
   const qs = new URLSearchParams({

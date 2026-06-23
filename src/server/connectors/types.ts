@@ -19,8 +19,11 @@ export interface ConnectedAccount {
 }
 
 // What we want to publish. A connector adapts this to its platform's API.
+export type TPublishFormat = 'post' | 'reel' | 'story' | 'video';
+
 export interface PublishInput {
   message?: string;             // caption / text body
+  format?: TPublishFormat;      // how to publish it (feed post, reel, story, video)
   imageUrl?: string;            // public URL of an image to attach
   imageBlob?: Blob;             // raw image bytes (uploaded directly, no public URL needed)
   videoUrl?: string;            // public URL of a video

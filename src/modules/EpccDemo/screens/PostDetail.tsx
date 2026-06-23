@@ -167,13 +167,24 @@ export default function PostDetail() {
             <p className="text-sm text-text-red">Couldn’t load live metrics: {live.error}</p>
           ) : (
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              <LiveStat label="Reach" value={live.loading ? '…' : (live.data?.metrics?.reach != null ? formatFollowers(live.data.metrics.reach) : '—')} />
               <LiveStat label="Likes" value={live.loading ? '…' : (live.data?.metrics?.likes ?? 0).toLocaleString()} />
               <LiveStat label="Comments" value={live.loading ? '…' : (live.data?.metrics?.comments ?? 0).toLocaleString()} />
               <LiveStat label="Shares" value={live.loading ? '…' : (live.data?.metrics?.shares ?? 0).toLocaleString()} />
+              <LiveStat label="Link clicks" value={live.loading ? '…' : (live.data?.metrics?.clicks ?? 0).toLocaleString()} />
+              {live.data?.metrics?.videoViews != null && <LiveStat label="Video views" value={(live.data.metrics.videoViews).toLocaleString()} />}
             </div>
           )}
-          <p className="text-xs text-neutral-500">Reach/impressions depend on what the platform exposes; new posts and small audiences may report 0.</p>
+          {/* Reaction breakdown (real, when available) */}
+          {!live.error && live.data?.reactions && Object.keys(live.data.reactions).length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {Object.entries(live.data.reactions as Record<string, number>).filter(([, n]) => n > 0).map(([k, n]) => (
+                <span key={k} className="flex items-center gap-1 rounded-full border border-neutral-200 bg-white px-2.5 py-1 text-xs text-neutral-700">
+                  <span className="capitalize">{k}</span> {n.toLocaleString()}
+                </span>
+              ))}
+            </div>
+          )}
+          <p className="text-xs text-neutral-500">Facebook no longer exposes reach/impressions via the API; these are the real metrics it still provides.</p>
         </DemoCard>
       )}
 
