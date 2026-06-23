@@ -85,16 +85,26 @@ export const facebookConnector: SocialConnector = {
     const page = account.accountId;
     const token = account.accessToken;
 
+    // Fetch a hosted URL into raw bytes when the composer provides a URL instead
+    // of a Blob (reels/stories need the bytes for the resumable upload).
+    const fetchBlob = async (url?: string): Promise<Blob | null> => {
+      if (!url) return null;
+      try { return await fetch(url).then((r) => r.blob()); } catch { return null; }
+    };
+
     // Reel — requires a video.
     if (fmt === 'reel') {
-      if (!input.videoBlob) throw new Error('A Reel needs a (vertical) video. Upload a video and try again.');
-      return publishReel(page, token, input.videoBlob, input.message);
+      const vid = input.videoBlob ?? (await fetchBlob(input.videoUrl));
+      if (!vid) throw new Error('A Reel needs a (vertical) video. Upload a video and try again.');
+      return publishReel(page, token, vid, input.message);
     }
 
     // Story — photo or video story.
     if (fmt === 'story') {
-      if (input.videoBlob) return publishVideoStory(page, token, input.videoBlob);
-      if (input.imageBlob) return publishPhotoStory(page, token, input.imageBlob);
+      const vid = input.videoBlob ?? (await fetchBlob(input.videoUrl));
+      if (vid) return publishVideoStory(page, token, vid);
+      const img = input.imageBlob ?? (await fetchBlob(input.imageUrl));
+      if (img) return publishPhotoStory(page, token, img);
       throw new Error('A Story needs an image or video. Upload media and try again.');
     }
 

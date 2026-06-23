@@ -60,16 +60,45 @@ export const instagramConnector: SocialConnector = {
   },
 
   async publish(account: ConnectedAccount, input: PublishInput): Promise<PublishResult> {
-    if (!input.imageUrl) {
-      throw new Error('Instagram requires an image (or video). A caption alone is not allowed.');
+    const fmt = input.format ?? 'post';
+    const isVideo = Boolean(input.videoUrl);
+    if (!input.imageUrl && !input.videoUrl) {
+      throw new Error('Instagram requires an image or video (no text-only posts).');
     }
-    // 1. Create a media container.
-    const container = await graphPost<{ id: string }>(`${account.accountId}/media`, {
-      image_url: input.imageUrl,
-      caption: input.message ?? '',
-      access_token: account.accessToken,
-    });
-    // 2. Publish the container.
+
+    // Build the media container by format. Instagram needs the media_type set:
+    //  - story  -> STORIES (image or video)
+    //  - reel / video -> REELS (video only)
+    //  - default -> a normal image feed post
+    const params: Record<string, string> = { access_token: account.accessToken };
+    if (fmt === 'story') {
+      params.media_type = 'STORIES';
+    } else if (fmt === 'reel' || fmt === 'video') {
+      params.media_type = 'REELS';
+      if (!isVideo) throw new Error('Instagram Reels require a video.');
+    }
+    // Stories don't take a caption; everything else does.
+    if (input.message && fmt !== 'story') params.caption = input.message;
+    if (isVideo) params.video_url = input.videoUrl!;
+    else params.image_url = input.imageUrl!;
+
+    const container = await graphPost<{ id: string }>(`${account.accountId}/media`, params);
+
+    // Video containers (reels / video stories) process asynchronously — wait until
+    // the container is FINISHED before publishing.
+    if (isVideo) {
+      let ready = false;
+      for (let i = 0; i < 30; i++) {
+        const st = await graphGet<{ status_code?: string }>(container.id, {
+          access_token: account.accessToken, fields: 'status_code',
+        });
+        if (st.status_code === 'FINISHED') { ready = true; break; }
+        if (st.status_code === 'ERROR') throw new Error('Instagram failed to process the video.');
+        await new Promise((r) => setTimeout(r, 3000));
+      }
+      if (!ready) throw new Error('Instagram video is still processing — try publishing again shortly.');
+    }
+
     const res = await graphPost<{ id: string }>(`${account.accountId}/media_publish`, {
       creation_id: container.id,
       access_token: account.accessToken,
