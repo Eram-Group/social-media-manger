@@ -14,10 +14,12 @@ export async function GET() {
       if (acc.platform === 'facebook') {
         const r = await graphGet<{ data: any[] }>(`${acc.accountId}/posts`, {
           access_token: acc.accessToken,
-          fields: 'id,message,created_time,permalink_url,full_picture,shares,likes.summary(true).limit(0),comments.summary(true).limit(0)',
+          fields: 'id,message,created_time,permalink_url,full_picture,status_type,shares,likes.summary(true).limit(0),comments.summary(true).limit(0)',
           limit: '50',
         });
         for (const p of r.data ?? []) {
+          // status_type: added_video -> video; added_photos/mobile_status_update -> post
+          const fmt = p.status_type === 'added_video' ? 'video' : 'post';
           posts.push({
             id: p.id,
             content: p.message ?? '(no caption)',
@@ -26,6 +28,7 @@ export async function GET() {
             time: (p.created_time ?? '').slice(11, 16),
             status: 'published',
             type: 'post',
+            format: fmt,
             likes: p.likes?.summary?.total_count ?? 0,
             comments: p.comments?.summary?.total_count ?? 0,
             shares: p.shares?.count ?? 0,
@@ -36,10 +39,14 @@ export async function GET() {
       } else if (acc.platform === 'instagram') {
         const r = await graphGet<{ data: any[] }>(`${acc.accountId}/media`, {
           access_token: acc.accessToken,
-          fields: 'id,caption,timestamp,permalink,media_url,like_count,comments_count',
+          fields: 'id,caption,timestamp,permalink,media_url,media_type,media_product_type,like_count,comments_count',
           limit: '50',
         });
         for (const p of r.data ?? []) {
+          // media_product_type: REELS/STORY; media_type: VIDEO/IMAGE/CAROUSEL_ALBUM
+          const fmt = p.media_product_type === 'REELS' ? 'reel'
+            : p.media_product_type === 'STORY' ? 'story'
+            : p.media_type === 'VIDEO' ? 'video' : 'post';
           posts.push({
             id: p.id,
             content: p.caption ?? '(no caption)',
@@ -48,6 +55,7 @@ export async function GET() {
             time: (p.timestamp ?? '').slice(11, 16),
             status: 'published',
             type: 'post',
+            format: fmt,
             likes: p.like_count ?? 0,
             comments: p.comments_count ?? 0,
             media: p.media_url ? [p.media_url] : undefined,
@@ -75,6 +83,7 @@ export async function GET() {
       existing.comments = (existing.comments ?? 0) + (p.comments ?? 0);
       existing.shares = (existing.shares ?? 0) + (p.shares ?? 0);
       if (!existing.media?.length && p.media?.length) existing.media = p.media;
+      if ((!existing.format || existing.format === 'post') && p.format && p.format !== 'post') existing.format = p.format;
     } else {
       groups.set(key, { ...p, platforms: [...p.platforms] });
     }

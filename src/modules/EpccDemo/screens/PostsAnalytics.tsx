@@ -20,6 +20,19 @@ import { publishPost, outcomesToRefs } from '../_services/publish';
 const tone: Record<TPostStatus, 'success' | 'info' | 'caution'> = {
   published: 'success', scheduled: 'info', draft: 'caution',
 };
+
+// A small badge for the post type (post / reel / story / video).
+const FMT_STYLE: Record<string, string> = {
+  reel: 'bg-[#FCE7F3] text-[#DB2777]',
+  story: 'bg-[#EDE9FE] text-[#7C3AED]',
+  video: 'bg-[#E0ECFF] text-[#2563EB]',
+  post: 'bg-neutral-100 text-neutral-600',
+};
+const FormatBadge = ({ format }: { format?: string }) => {
+  const f = format ?? 'post';
+  return <span className={cn('rounded-full px-2 py-0.5 text-[11px] font-medium capitalize', FMT_STYLE[f] ?? FMT_STYLE.post)}>{f}</span>;
+};
+
 type TStatusFilter = 'all' | TPostStatus;
 type TViewMode = 'list' | 'table' | 'grid';
 type TView = { mode: 'list' } | { mode: 'create' } | { mode: 'edit'; post: IPost };
@@ -269,6 +282,7 @@ export default function PostsAnalytics() {
                 <button className="flex min-w-0 flex-1 flex-col text-left" onClick={() => setOpen(p)}>
                   <div className="mb-1 flex flex-wrap items-center gap-2">
                     <StatusPill tone={tone[p.status]}>{p.status}</StatusPill>
+                    <FormatBadge format={p.format} />
                     {p.campaign && <span className="text-xs font-medium text-primary-800">▣ {p.campaign}</span>}
                     <span className="text-xs text-neutral-500">{p.date} · {p.time}</span>
                   </div>
@@ -301,7 +315,7 @@ export default function PostsAnalytics() {
                 <tr key={p.id} className={cn('hover:bg-neutral-100/60', sel.includes(p.id) && 'bg-primary-100/50')}>
                   <td className="px-5 py-3"><SelBox id={p.id} /></td>
                   <td className="px-5 py-3"><div className="flex items-center gap-2"><PostThumb post={p} className="h-9 w-9" /><button onClick={() => setOpen(p)} className="max-w-xs truncate text-left text-neutral-800 hover:text-primary-800">{p.content}</button></div></td>
-                  <td className="px-5 py-3"><StatusPill tone={tone[p.status]}>{p.status}</StatusPill></td>
+                  <td className="px-5 py-3"><div className="flex items-center gap-1.5"><StatusPill tone={tone[p.status]}>{p.status}</StatusPill><FormatBadge format={p.format} /></div></td>
                   <td className="px-5 py-3"><div className="flex gap-1">{p.platforms.map((pl) => <PlatformChip key={pl} platform={pl} />)}</div></td>
                   <td className="px-5 py-3 text-neutral-600">{p.date} · {p.time}</td>
                   <td className="px-5 py-3">{reachCell(p)}</td>
@@ -320,7 +334,7 @@ export default function PostsAnalytics() {
             <StaggerItem key={p.id}>
               <DemoCard className={cn('flex h-full flex-col gap-3', sel.includes(p.id) && 'ring-2 ring-primary-200')}>
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2"><SelBox id={p.id} /><StatusPill tone={tone[p.status]}>{p.status}</StatusPill></div>
+                  <div className="flex items-center gap-2"><SelBox id={p.id} /><StatusPill tone={tone[p.status]}>{p.status}</StatusPill><FormatBadge format={p.format} /></div>
                   <span className="text-xs text-neutral-500">{p.date} · {p.time}</span>
                 </div>
                 <button onClick={() => setOpen(p)} className="flex flex-1 items-start gap-3 text-left">
