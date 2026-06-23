@@ -1,25 +1,22 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { AnimatePresence } from 'framer-motion';
-import { RefreshCw, Plus, Check, AlertCircle, Link2 } from 'lucide-react';
+import { Trash2, Check, AlertCircle, RefreshCw, Users } from 'lucide-react';
 import { Button } from '@UI/index';
 import { cn } from '@/shadecn/lib/utils';
-import { Backdrop, ModalPanel, Stagger, StaggerItem } from '../_components/motion';
-import { DemoCard, SectionTitle, PlatformChip, StatusPill, StatCard, formatFollowers } from '../_components/ui';
+import { Backdrop, ModalPanel } from '../_components/motion';
+import { DemoCard, SectionTitle, PlatformChip, StatCard, formatFollowers } from '../_components/ui';
 import { PLATFORMS, getPlatform, TPlatformId } from '@/mock-server/platforms';
 
-// Platforms with a real connector implemented today. The rest show "coming soon".
 const CONNECTABLE: TPlatformId[] = ['facebook', 'instagram'];
 
-// Shape returned by GET /api/accounts (tokens stripped server-side).
 interface ConnectedAccount {
   platform: TPlatformId;
   accountId: string;
   name?: string;
   followers?: number;
-  connectedAt?: number;
 }
 
 const errorText = (code: string | null) => {
@@ -34,25 +31,23 @@ export default function Accounts() {
   const [accounts, setAccounts] = useState<ConnectedAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
-  const [showAdd, setShowAdd] = useState(false);
+  const [confirmRemove, setConfirmRemove] = useState<ConnectedAccount | null>(null);
   const [banner, setBanner] = useState<{ tone: 'success' | 'error'; text: string } | null>(null);
+  const [filter, setFilter] = useState<'all' | TPlatformId>('all');
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const res = await fetch('/api/accounts', { cache: 'no-store' });
-      const data = await res.json();
-      setAccounts(data.accounts ?? []);
+      setAccounts((await res.json()).accounts ?? []);
     } catch {
       setAccounts([]);
     } finally {
       setLoading(false);
     }
   }, []);
-
   useEffect(() => { load(); }, [load]);
 
-  // Surface the result of the OAuth redirect (?connected=… or ?error=…).
   useEffect(() => {
     const connected = params.get('connected');
     const error = params.get('error');
@@ -60,133 +55,152 @@ export default function Accounts() {
     else if (error) setBanner({ tone: 'error', text: errorText(error) });
   }, [params]);
 
-  const startConnect = (platform: TPlatformId) => {
-    // Full-page navigation — kicks off the OAuth redirect to the provider.
-    window.location.href = `/api/connect/${platform}`;
-  };
-
-  const disconnect = async (a: ConnectedAccount) => {
+  const connect = (platform: TPlatformId) => { window.location.href = `/api/connect/${platform}`; };
+  const remove = async (a: ConnectedAccount) => {
     setBusy(a.accountId);
     await fetch(`/api/accounts?platform=${a.platform}&accountId=${a.accountId}`, { method: 'DELETE' });
     setBusy(null);
+    setConfirmRemove(null);
     load();
   };
 
+  const byPlatform = (p: TPlatformId) => accounts.find((a) => a.platform === p);
   const totalFollowers = accounts.reduce((s, a) => s + (a.followers ?? 0), 0);
+
+  // Metrics overview stat cards (respect the platform filter).
+  const metricCards = useMemo(() => {
+    if (filter === 'all') {
+      const cards = [
+        { label: 'Connected accounts', value: String(accounts.length) },
+        { label: 'Total followers', value: formatFollowers(totalFollowers) },
+      ];
+      for (const a of accounts) cards.push({ label: `${getPlatform(a.platform).name} followers`, value: formatFollowers(a.followers ?? 0) });
+      return cards;
+    }
+    const a = byPlatform(filter);
+    return [
+      { label: 'Followers', value: a ? formatFollowers(a.followers ?? 0) : '—' },
+      { label: 'Account', value: a?.name ?? 'Not connected' },
+      { label: 'Status', value: a ? 'Connected' : 'Not connected' },
+    ];
+  }, [filter, accounts, totalFollowers]);
+
+  const connectedPlatforms = accounts.map((a) => a.platform);
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <SectionTitle
-          title="Connected Accounts"
-          subtitle="Connect the Chamber's real social accounts via secure OAuth login."
-        />
-        <div className="flex gap-2">
-          <div className="w-32">
-            <Button variant="outline" size="medium" onClick={load} loading={loading}
-              leftIcon={loading ? undefined : <RefreshCw size={16} />}>
-              Refresh
-            </Button>
-          </div>
-          <div className="w-44">
-            <Button variant="primary" size="medium" onClick={() => setShowAdd(true)} leftIcon={<Plus size={16} />}>
-              Connect account
-            </Button>
+      {/* ---- Metrics Overview ---- */}
+      <div className="space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="font-Sora text-2xl font-medium text-text-dark">Metrics Overview</p>
+          <div className="flex items-center gap-2">
+            {/* platform selector */}
+            <div className="flex items-center gap-1 rounded-lg border border-neutral-200 bg-white p-1">
+              <button onClick={() => setFilter('all')}
+                className={cn('rounded-md px-3 py-1.5 text-sm font-medium', filter === 'all' ? 'bg-secondary-200 text-primary-900' : 'text-neutral-600 hover:bg-neutral-100')}>
+                All Platforms
+              </button>
+              {connectedPlatforms.map((p) => (
+                <button key={p} onClick={() => setFilter(p)}
+                  className={cn('flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium', filter === p ? 'bg-secondary-200 text-primary-900' : 'text-neutral-600 hover:bg-neutral-100')}>
+                  <PlatformChip platform={p} /> {getPlatform(p).name}
+                </button>
+              ))}
+            </div>
+            <button onClick={load} disabled={loading} className="flex h-9 w-9 items-center justify-center rounded-lg border border-neutral-200 text-neutral-700 hover:bg-neutral-100 disabled:opacity-50" title="Refresh">
+              <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+            </button>
           </div>
         </div>
+
+        {accounts.length === 0 && !loading ? (
+          <DemoCard className="flex flex-col items-center gap-3 py-12 text-center">
+            <span className="flex h-12 w-12 items-center justify-center rounded-full bg-primary-100 text-primary-800"><Users size={22} /></span>
+            <p className="text-sm text-neutral-600">No accounts connected yet — link one below to see your metrics.</p>
+          </DemoCard>
+        ) : (
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+            {metricCards.map((c, i) => <StatCard key={`${c.label}-${i}`} label={c.label} value={c.value} />)}
+          </div>
+        )}
       </div>
 
-      {/* Result banner */}
+      {/* result banner */}
       <AnimatePresence>
         {banner && (
           <div className={cn('flex items-center justify-between gap-3 rounded-lg border px-4 py-3 text-sm',
             banner.tone === 'success' ? 'border-warnings-success/30 bg-warnings-successBg text-warnings-success' : 'border-text-red/30 bg-text-red/5 text-text-red')}>
-            <span className="flex items-center gap-2">
-              {banner.tone === 'success' ? <Check size={16} /> : <AlertCircle size={16} />}
-              {banner.text}
-            </span>
+            <span className="flex items-center gap-2">{banner.tone === 'success' ? <Check size={16} /> : <AlertCircle size={16} />}{banner.text}</span>
             <button onClick={() => setBanner(null)} className="text-xs underline opacity-70 hover:opacity-100">Dismiss</button>
           </div>
         )}
       </AnimatePresence>
 
-      {/* Aggregate metrics */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
-        <StatCard label="Connected accounts" value={`${accounts.length}`} />
-        <StatCard label="Total followers" value={formatFollowers(totalFollowers)} />
-        <StatCard label="Platforms available" value={`${CONNECTABLE.length} live`} />
+      {/* ---- Social Media Connections ---- */}
+      <div className="rounded-2xl border border-neutral-200 bg-white p-6">
+        <div className="mb-6">
+          <p className="text-lg font-medium text-text-dark">Social Media Connections</p>
+          <p className="pt-0.5 text-sm text-neutral-700">
+            Link the Chamber's social profiles to publish, schedule and measure performance from one place.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          {PLATFORMS.map((p) => {
+            const acc = byPlatform(p.id);
+            const isLinked = Boolean(acc);
+            const isConnectable = CONNECTABLE.includes(p.id);
+            return (
+              <div key={p.id}
+                className={cn('w-full rounded-2xl border border-neutral-200 bg-white p-4 transition-all duration-200 hover:shadow-sm', !isConnectable && 'opacity-50 grayscale')}>
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <PlatformChip platform={p.id} size="lg" />
+                    <div>
+                      {isLinked ? (
+                        <>
+                          <p className="text-sm font-medium text-neutral-1000">{p.name}</p>
+                          <p className="text-xs text-neutral-700">{acc?.name ?? acc?.accountId}{acc?.followers != null ? ` · ${formatFollowers(acc.followers)} followers` : ''}</p>
+                        </>
+                      ) : (
+                        <p className="text-sm font-medium text-text-dark">{p.name}</p>
+                      )}
+                    </div>
+                  </div>
+
+                  {!isConnectable ? (
+                    <span className="text-sm font-medium text-neutral-400">Coming soon</span>
+                  ) : !isLinked ? (
+                    <div className="w-32">
+                      <Button variant="text" size="small" onClick={() => connect(p.id)}>Link Account</Button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <button onClick={() => connect(p.id)} className="rounded-lg px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-100">Replace</button>
+                      <button onClick={() => setConfirmRemove(acc!)} disabled={busy === acc?.accountId}
+                        className="flex h-9 w-9 items-center justify-center rounded-lg border border-neutral-200 text-text-red hover:bg-text-red/5 disabled:opacity-50">
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
 
-      {/* Connected account cards */}
-      {loading ? (
-        <DemoCard className="py-12 text-center text-sm text-neutral-500">Loading connected accounts…</DemoCard>
-      ) : accounts.length === 0 ? (
-        <DemoCard className="flex flex-col items-center gap-4 py-14 text-center">
-          <span className="flex h-12 w-12 items-center justify-center rounded-full bg-primary-100 text-primary-800"><Link2 size={22} /></span>
-          <div>
-            <p className="font-Sora text-base font-semibold">No accounts connected yet</p>
-            <p className="mt-1 text-sm text-neutral-500">Connect a Facebook Page or Instagram account to start publishing.</p>
-          </div>
-          <div className="w-52"><Button variant="primary" size="medium" onClick={() => setShowAdd(true)} leftIcon={<Plus size={16} />}>Connect account</Button></div>
-        </DemoCard>
-      ) : (
-        <Stagger className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {accounts.map((a) => (
-            <StaggerItem key={`${a.platform}:${a.accountId}`}>
-              <DemoCard className="flex h-full flex-col gap-4">
-                <div className="flex items-center justify-between">
-                  <PlatformChip platform={a.platform} size="md" withLabel />
-                  <StatusPill tone="success">Connected</StatusPill>
-                </div>
-                <p className="text-sm text-neutral-600">{a.name ?? a.accountId}</p>
-                <div className="grid grid-cols-2 gap-2 border-t border-neutral-200 pt-4">
-                  <Metric value={a.followers != null ? formatFollowers(a.followers) : '—'} label="Followers" />
-                  <Metric value={getPlatform(a.platform).name} label="Platform" />
-                </div>
-                <div className="mt-auto flex items-center justify-between border-t border-neutral-200 pt-3">
-                  <span className="text-xs text-neutral-500">Authorized via OAuth</span>
-                  <button
-                    onClick={() => disconnect(a)}
-                    disabled={busy === a.accountId}
-                    className="text-xs font-medium text-text-red hover:underline disabled:opacity-50">
-                    {busy === a.accountId ? 'Removing…' : 'Disconnect'}
-                  </button>
-                </div>
-              </DemoCard>
-            </StaggerItem>
-          ))}
-        </Stagger>
-      )}
-
-      {/* Connect modal */}
+      {/* remove confirmation */}
       <AnimatePresence>
-        {showAdd && (
-          <Backdrop onClose={() => setShowAdd(false)} className="items-center justify-center p-4">
-            <ModalPanel className="w-full max-w-lg rounded-xl bg-white p-6 shadow-7">
-              <SectionTitle title="Connect an account" subtitle="Sign in with the platform to authorize the Chamber workspace." />
-              <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
-                {PLATFORMS.map((p) => {
-                  const live = CONNECTABLE.includes(p.id);
-                  return (
-                    <button
-                      key={p.id}
-                      disabled={!live}
-                      onClick={() => live && startConnect(p.id)}
-                      className={cn(
-                        'flex flex-col items-center gap-2 rounded-lg border p-4 transition-colors',
-                        live ? 'border-neutral-300 hover:border-primary-300 hover:bg-primary-100' : 'cursor-not-allowed border-neutral-200 bg-neutral-100 opacity-70',
-                      )}>
-                      <PlatformChip platform={p.id} size="lg" />
-                      <span className="text-sm font-medium text-neutral-800">{getPlatform(p.id).name}</span>
-                      <span className={cn('text-xs', live ? 'text-primary-800' : 'text-neutral-400')}>
-                        {live ? 'Sign in to connect' : 'Coming soon'}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-              <div className="mt-5 flex justify-end">
-                <div className="w-28"><Button variant="outline" size="medium" onClick={() => setShowAdd(false)}>Close</Button></div>
+        {confirmRemove && (
+          <Backdrop onClose={() => setConfirmRemove(null)} className="items-center justify-center p-4">
+            <ModalPanel className="w-full max-w-[28rem] rounded-xl bg-white p-6 text-center shadow-7">
+              <span className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-text-red/10 text-text-red"><Trash2 size={22} /></span>
+              <p className="text-base font-semibold md:text-lg">Remove social media account</p>
+              <p className="pb-4 pt-1 text-sm text-neutral-700">Are you sure you want to remove {getPlatform(confirmRemove.platform).name}? You can link it again anytime.</p>
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex-1"><Button variant="outline" size="medium" onClick={() => setConfirmRemove(null)} disable={busy != null}>Cancel</Button></div>
+                <div className="flex-1"><Button variant="primary" size="medium" className="!bg-text-red" loading={busy === confirmRemove.accountId} onClick={() => remove(confirmRemove)}>Remove</Button></div>
               </div>
             </ModalPanel>
           </Backdrop>
@@ -195,10 +209,3 @@ export default function Accounts() {
     </div>
   );
 }
-
-const Metric = ({ value, label }: { value: string; label: string }) => (
-  <div>
-    <p className="font-Sora text-lg font-semibold">{value}</p>
-    <p className="text-xs text-neutral-500">{label}</p>
-  </div>
-);
