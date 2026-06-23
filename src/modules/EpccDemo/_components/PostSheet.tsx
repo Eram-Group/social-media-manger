@@ -83,24 +83,13 @@ export default function PostSheet({ post, onClose, onEdit }: { post: IPost | nul
                 </div>
               </div>
 
-              {/* performance OR publishing summary */}
-              {a.published ? (
+              {/* performance OR publishing summary — published shows real engagement */}
+              {post.status === 'published' ? (
                 <>
                   <div className="grid grid-cols-3 gap-3">
-                    <Mini icon={Eye} label="Reach" value={formatFollowers(a.reach)} />
-                    <Mini icon={Heart} label="Likes" value={formatFollowers(a.likes)} />
-                    <Mini icon={Share2} label="Eng." value={`${a.engagementRate}%`} />
-                  </div>
-                  <div>
-                    <p className="text-xs font-medium uppercase text-neutral-500">Reach by platform</p>
-                    <div className="mt-2 flex flex-col divide-y divide-neutral-100">
-                      {a.perPlatform.map((pp) => (
-                        <div key={pp.platform} className="flex items-center justify-between py-1.5 text-sm">
-                          <span className="flex items-center gap-2 text-neutral-700"><PlatformChip platform={pp.platform} /> {getPlatform(pp.platform).name}</span>
-                          <span className="text-neutral-600">{formatFollowers(pp.reach)} · {pp.engagement}%</span>
-                        </div>
-                      ))}
-                    </div>
+                    <Mini icon={Heart} label="Likes" value={(post.likes ?? 0).toLocaleString()} />
+                    <Mini icon={MessageCircle} label="Comments" value={(post.comments ?? 0).toLocaleString()} />
+                    <Mini icon={Share2} label="Shares" value={(post.shares ?? 0).toLocaleString()} />
                   </div>
                   <Link href={`/epcc-demo/posts/${post.id}`} onClick={close}
                     className="flex items-center justify-center gap-2 rounded-lg bg-primary-800 py-3 text-sm font-semibold text-white hover:bg-primary-900">
@@ -109,8 +98,8 @@ export default function PostSheet({ post, onClose, onEdit }: { post: IPost | nul
                 </>
               ) : (
                 <div className="rounded-lg border border-dashed border-neutral-300 bg-neutral-100 p-4 text-sm text-neutral-600">
-                  <p className="font-medium text-neutral-800">{post.status === 'scheduled' ? 'Ready to publish' : 'Draft'}</p>
-                  <p className="mt-1 flex items-center gap-1.5"><MessageCircle size={13} /> {post.status === 'scheduled' ? `Will publish on ${post.date.slice(8)} Jun at ${post.time} to ${post.platforms.length} platform${post.platforms.length === 1 ? '' : 's'}.` : 'Not scheduled yet — finish and schedule it to go live.'}</p>
+                  <p className="font-medium text-neutral-800">{post.status === 'scheduled' ? 'Scheduled' : 'Draft (saved locally — not on any platform yet)'}</p>
+                  <p className="mt-1 flex items-center gap-1.5"><MessageCircle size={13} /> {post.status === 'scheduled' ? `Will publish on ${post.date.slice(8)} Jun at ${post.time} to ${post.platforms.length} platform${post.platforms.length === 1 ? '' : 's'}.` : 'Use “Publish now” below to post it, or “Edit” to schedule it.'}</p>
                 </div>
               )}
             </div>

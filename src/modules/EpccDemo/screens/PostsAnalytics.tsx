@@ -3,7 +3,7 @@
 import { ReactNode, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Eye, Plus, Pencil, Trash2, AlertTriangle, Megaphone, List, Table2, LayoutGrid, Check, CalendarClock, XCircle, Search, Inbox } from 'lucide-react';
+import { Eye, Plus, Pencil, Trash2, AlertTriangle, Megaphone, List, Table2, LayoutGrid, Check, CalendarClock, XCircle, Search, Inbox, Heart } from 'lucide-react';
 import { Button } from '@UI/index';
 import { cn } from '@/shadecn/lib/utils';
 import { DemoCard, SectionTitle, StatCard, StatusPill, PlatformChip, formatFollowers } from '../_components/ui';
@@ -96,8 +96,8 @@ export default function PostsAnalytics() {
       (search.trim() === '' || p.content.toLowerCase().includes(search.toLowerCase())),
   );
   const published = posts.filter((p) => p.status === 'published');
-  const totalReach = published.reduce((s, p) => s + (p.reach ?? 0), 0);
-  const avgEng = published.length ? (published.reduce((s, p) => s + getPostAnalytics(p).engagementRate, 0) / published.length).toFixed(1) : '0';
+  const totalEngagement = published.reduce((s, p) => s + (p.likes ?? 0) + (p.comments ?? 0) + (p.shares ?? 0), 0);
+  const totalComments = published.reduce((s, p) => s + (p.comments ?? 0), 0);
 
   const STATUSES: { key: TStatusFilter; label: string }[] = [
     { key: 'all', label: 'All' }, { key: 'published', label: 'Published' }, { key: 'scheduled', label: 'Scheduled' }, { key: 'draft', label: 'Drafts' },
@@ -131,11 +131,14 @@ export default function PostsAnalytics() {
     </div>
   );
 
+  // Facebook no longer exposes reach via the API, so we show real engagement
+  // (likes + comments + shares) for published posts instead.
+  const engOf = (p: IPost) => (p.likes ?? 0) + (p.comments ?? 0) + (p.shares ?? 0);
   const reachCell = (p: IPost) => {
-    const an = getPostAnalytics(p);
-    return an.published
-      ? <span className="flex items-center gap-1 text-neutral-700"><Eye size={14} /> {formatFollowers(an.reach)}</span>
-      : <span className={cn('text-xs font-medium', p.status === 'scheduled' ? 'text-primary-800' : 'text-warnings-caution')}>{p.status === 'scheduled' ? `Scheduled · ${p.time}` : 'Draft'}</span>;
+    if (p.status === 'published') {
+      return <span className="flex items-center gap-1 text-neutral-700"><Heart size={14} /> {engOf(p).toLocaleString()}</span>;
+    }
+    return <span className={cn('text-xs font-medium', p.status === 'scheduled' ? 'text-primary-800' : 'text-warnings-caution')}>{p.status === 'scheduled' ? `Scheduled · ${p.time}` : 'Draft'}</span>;
   };
 
   return (
@@ -152,8 +155,8 @@ export default function PostsAnalytics() {
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard label="Total posts" value={`${posts.length}`} />
         <StatCard label="Published" value={`${published.length}`} />
-        <StatCard label="Total reach" value={formatFollowers(totalReach)} />
-        <StatCard label="Avg. engagement" value={`${avgEng}%`} />
+        <StatCard label="Total engagement" value={totalEngagement.toLocaleString()} />
+        <StatCard label="Comments" value={totalComments.toLocaleString()} />
       </div>
 
       {/* Search */}
@@ -269,7 +272,7 @@ export default function PostsAnalytics() {
                   className={cn('flex h-5 w-5 items-center justify-center rounded border', allSelected ? 'border-primary-800 bg-primary-800 text-white' : 'border-neutral-300')}>{allSelected && <Check size={12} />}</button></th>
                 <th className="px-5 py-3 font-medium">Post</th><th className="px-5 py-3 font-medium">Status</th>
                 <th className="px-5 py-3 font-medium">Platforms</th><th className="px-5 py-3 font-medium">Schedule</th>
-                <th className="px-5 py-3 font-medium">Reach</th><th className="px-5 py-3 font-medium text-right">Actions</th>
+                <th className="px-5 py-3 font-medium">Engagement</th><th className="px-5 py-3 font-medium text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-neutral-200">

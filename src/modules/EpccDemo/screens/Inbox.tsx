@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { MessageCircle, ExternalLink, RefreshCw, Inbox as InboxIcon } from 'lucide-react';
+import { MessageCircle, ExternalLink, RefreshCw, Inbox as InboxIcon, Send, Check } from 'lucide-react';
 import { DemoCard, SectionTitle, PlatformChip } from '../_components/ui';
 import { TPlatformId } from '@/mock-server/platforms';
 
@@ -35,6 +35,38 @@ export default function Inbox() {
       .finally(() => setLoading(false));
   };
   useEffect(() => { load(); }, []);
+
+  // Inline reply state, keyed by comment id.
+  const [replyId, setReplyId] = useState<string | null>(null);
+  const [replyText, setReplyText] = useState('');
+  const [sending, setSending] = useState(false);
+  const [replied, setReplied] = useState<Record<string, boolean>>({});
+  const [replyErr, setReplyErr] = useState('');
+
+  const sendReply = async (c: InboxItem) => {
+    if (!replyText.trim() || sending) return;
+    setSending(true);
+    setReplyErr('');
+    try {
+      const res = await fetch('/api/inbox/reply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ platform: c.platform, accountId: c.accountId, commentId: c.id, message: replyText.trim() }),
+      });
+      const j = await res.json();
+      if (res.ok && j.ok) {
+        setReplied((m) => ({ ...m, [c.id]: true }));
+        setReplyId(null);
+        setReplyText('');
+      } else {
+        setReplyErr(j.error || 'Reply failed');
+      }
+    } catch (e) {
+      setReplyErr((e as Error).message);
+    } finally {
+      setSending(false);
+    }
+  };
 
   return (
     <div className="flex flex-col gap-6">
@@ -70,18 +102,41 @@ export default function Inbox() {
               <p className="text-sm text-neutral-800">{c.text}</p>
               <div className="flex items-center justify-between border-t border-neutral-100 pt-2">
                 {c.postExcerpt ? <span className="truncate text-xs text-neutral-400">on: {c.postExcerpt}…</span> : <span />}
-                {c.permalink && (
-                  <a href={c.permalink} target="_blank" rel="noreferrer" className="flex shrink-0 items-center gap-1 text-xs font-medium text-primary-800 hover:underline">
-                    Reply on Facebook <ExternalLink size={12} />
-                  </a>
-                )}
+                <div className="flex shrink-0 items-center gap-3">
+                  {replied[c.id] ? (
+                    <span className="flex items-center gap-1 text-xs font-medium text-warnings-success"><Check size={12} /> Replied</span>
+                  ) : (
+                    <button onClick={() => { setReplyId(replyId === c.id ? null : c.id); setReplyText(''); setReplyErr(''); }} className="flex items-center gap-1 text-xs font-medium text-primary-800 hover:underline">
+                      <MessageCircle size={12} /> Reply
+                    </button>
+                  )}
+                  {c.permalink && (
+                    <a href={c.permalink} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-xs font-medium text-neutral-500 hover:underline">
+                      Open <ExternalLink size={12} />
+                    </a>
+                  )}
+                </div>
               </div>
+
+              {replyId === c.id && (
+                <div className="flex flex-col gap-2 border-t border-neutral-100 pt-2">
+                  <div className="flex items-center gap-2">
+                    <input autoFocus value={replyText} onChange={(e) => setReplyText(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') sendReply(c); }}
+                      placeholder="Write a reply…" className="flex-1 rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-primary-400" />
+                    <button onClick={() => sendReply(c)} disabled={sending || !replyText.trim()} className="flex items-center gap-1 rounded-lg bg-primary-800 px-3 py-2 text-sm font-medium text-white hover:bg-primary-900 disabled:opacity-50">
+                      <Send size={14} /> {sending ? 'Sending…' : 'Send'}
+                    </button>
+                  </div>
+                  {replyErr && <p className="text-xs text-text-red">{replyErr}</p>}
+                </div>
+              )}
             </DemoCard>
           ))}
         </div>
       )}
 
-      <p className="text-xs text-neutral-400">Replying in-app needs the <code>pages_manage_engagement</code> permission — until that's approved, use “Reply on Facebook”.</p>
+      <p className="text-xs text-neutral-400">In-app replies use the <code>pages_manage_engagement</code> permission. If a reply errors with a permissions message, reconnect the account to grant it.</p>
     </div>
   );
 }

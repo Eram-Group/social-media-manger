@@ -8,7 +8,7 @@ import { buildAuthUrl, codeToUserToken, discoverPages, graphPost, graphPostForm 
 
 // business_management lets us reach Pages owned via a Business / New Pages Experience
 // (which don't appear on the personal /me/accounts edge).
-const SCOPES = ['pages_show_list', 'pages_read_engagement', 'pages_manage_posts', 'business_management'];
+const SCOPES = ['pages_show_list', 'pages_read_engagement', 'pages_manage_posts', 'pages_manage_engagement', 'business_management'];
 
 export const facebookConnector: SocialConnector = {
   id: 'facebook',
