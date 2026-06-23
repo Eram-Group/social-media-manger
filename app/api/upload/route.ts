@@ -21,7 +21,13 @@ export async function POST(req: NextRequest) {
     const name = (file as File).name || 'upload';
     const ext = name.includes('.') ? name.split('.').pop() : (file.type.startsWith('video') ? 'mp4' : 'jpg');
     const key = `posts/${Date.now()}-${Math.round(Math.random() * 1e9)}.${ext}`;
-    const blob = await put(key, file, { access: 'public', contentType: file.type || undefined });
+    // Pass the token explicitly so the SDK uses token auth (the project has OIDC
+    // enabled, which isn't available in the local development environment).
+    const blob = await put(key, file, {
+      access: 'public',
+      contentType: file.type || undefined,
+      token: process.env.BLOB_READ_WRITE_TOKEN,
+    });
     return NextResponse.json({ ok: true, url: blob.url });
   } catch (e) {
     return NextResponse.json({ error: (e as Error).message }, { status: 500 });
