@@ -56,18 +56,23 @@ export default function PostsAnalytics() {
           let finalPost = post;
           let message = action === 'publish' ? 'Post published ✓' : action === 'schedule' ? 'Post scheduled ✓' : 'Draft saved ✓';
 
-          if (action === 'publish') {
-            const outcomes = await publishPost(post);
+          // Both publish and schedule hit the real platform; schedule passes a future time.
+          if (action === 'publish' || action === 'schedule') {
+            const schedTs = action === 'schedule'
+              ? Math.floor(new Date(`${post.date}T${post.time}:00`).getTime() / 1000)
+              : undefined;
+            const verb = action === 'schedule' ? 'Scheduled' : 'Published';
+            const outcomes = await publishPost(post, schedTs);
             if (outcomes.length) {
               const ok = outcomes.filter((o) => o.ok);
               const failed = outcomes.filter((o) => !o.ok);
               finalPost = { ...post, remoteRefs: outcomesToRefs(outcomes) };
               if (ok.length && !failed.length) {
-                message = `Published live to ${ok.map((o) => getPlatform(o.platform).name).join(', ')} ✓`;
+                message = `${verb} on ${ok.map((o) => getPlatform(o.platform).name).join(', ')} ✓`;
               } else if (ok.length && failed.length) {
-                message = `Published to ${ok.map((o) => getPlatform(o.platform).name).join(', ')}; ${failed.map((o) => `${getPlatform(o.platform).name}: ${o.error}`).join(', ')}`;
+                message = `${verb} on ${ok.map((o) => getPlatform(o.platform).name).join(', ')}; ${failed.map((o) => `${getPlatform(o.platform).name}: ${o.error}`).join(', ')}`;
               } else {
-                message = `Publish failed — ${failed.map((o) => `${getPlatform(o.platform).name}: ${o.error}`).join(', ')}`;
+                message = `${verb} failed — ${failed.map((o) => `${getPlatform(o.platform).name}: ${o.error}`).join(', ')}`;
               }
             }
           }
@@ -75,8 +80,7 @@ export default function PostsAnalytics() {
           if (view.mode === 'edit') updatePost(finalPost); else addPost(finalPost);
           done();
           flash(message);
-          // Reconcile with the real list from the platform (gets the canonical
-          // post id, image and any metrics) shortly after publishing.
+          // Reconcile published posts with the platform shortly after.
           if (action === 'publish' && finalPost.remoteRefs?.length) {
             window.setTimeout(() => refresh(), 1500);
           }

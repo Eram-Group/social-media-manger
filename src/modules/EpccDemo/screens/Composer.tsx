@@ -48,6 +48,7 @@ export default function Composer({
   const [selected, setSelected] = useState<TPlatformId[]>(initial?.platforms ?? ['x', 'instagram', 'linkedin']);
   const [date, setDate] = useState(initial?.date ?? initialDate ?? '2026-06-25');
   const [time, setTime] = useState(initial?.time ?? '09:00');
+  const [mode, setMode] = useState<'now' | 'schedule'>(initial?.status === 'scheduled' ? 'schedule' : 'now');
 
   const [tags, setTags] = useState<string[]>(['EPChamber', 'Vision2030']);
   const [tagInput, setTagInput] = useState('');
@@ -275,24 +276,44 @@ export default function Composer({
             </div>
           )}
 
-          {/* STEP 3 — Schedule */}
+          {/* STEP 3 — Publish or schedule */}
           {step === 3 && (
             <DemoCard className="flex flex-col gap-4">
-              <span className="flex items-center gap-2 text-sm font-semibold text-text-dark"><CalendarClock size={16} className="text-primary-800" /> Schedule</span>
-              <div className="grid grid-cols-2 gap-4"><DsDatePicker label="Date" value={date} onChange={setDate} /><DsTimePicker label="Time" value={time} onChange={setTime} /></div>
-              <div>
-                <p className="flex items-center gap-1.5 text-xs font-medium text-neutral-600"><Sparkles size={13} className="text-primary-800" /> Suggested times</p>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {SUGGESTED_SLOTS.map((s) => { const on = date === s.date && time === s.time;
-                    return <button key={s.label} onClick={() => { setDate(s.date); setTime(s.time); }} title={s.reason} className={cn('flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs transition-colors', on ? 'border-primary-300 bg-secondary-200 text-primary-900' : 'border-neutral-300 bg-white text-neutral-700 hover:bg-neutral-100')}>{s.label}<span className="rounded-full bg-warnings-successBg px-1.5 text-[10px] font-medium text-warnings-success">{s.score}</span></button>; })}
-                </div>
+              <span className="flex items-center gap-2 text-sm font-semibold text-text-dark"><CalendarClock size={16} className="text-primary-800" /> Publishing</span>
+
+              {/* Toggle: publish now vs schedule for later */}
+              <div className="grid grid-cols-2 gap-2 rounded-xl bg-neutral-100 p-1">
+                {(['now', 'schedule'] as const).map((m) => (
+                  <button key={m} onClick={() => setMode(m)}
+                    className={cn('rounded-lg py-2 text-sm font-medium transition-colors', mode === m ? 'bg-white text-primary-900 shadow-4' : 'text-neutral-600 hover:text-neutral-800')}>
+                    {m === 'now' ? 'Publish now' : 'Schedule for later'}
+                  </button>
+                ))}
               </div>
+
+              {mode === 'schedule' && (
+                <>
+                  <div className="grid grid-cols-2 gap-4"><DsDatePicker label="Date" value={date} onChange={setDate} /><DsTimePicker label="Time" value={time} onChange={setTime} /></div>
+                  <div>
+                    <p className="flex items-center gap-1.5 text-xs font-medium text-neutral-600"><Sparkles size={13} className="text-primary-800" /> Suggested times</p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {SUGGESTED_SLOTS.map((s) => { const on = date === s.date && time === s.time;
+                        return <button key={s.label} onClick={() => { setDate(s.date); setTime(s.time); }} title={s.reason} className={cn('flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs transition-colors', on ? 'border-primary-300 bg-secondary-200 text-primary-900' : 'border-neutral-300 bg-white text-neutral-700 hover:bg-neutral-100')}>{s.label}<span className="rounded-full bg-warnings-successBg px-1.5 text-[10px] font-medium text-warnings-success">{s.score}</span></button>; })}
+                    </div>
+                  </div>
+                  <p className="text-xs text-neutral-500">Scheduled posts are sent to the platform now and go live at the chosen time (Facebook requires at least ~10 minutes ahead).</p>
+                </>
+              )}
+
               <div className="flex flex-wrap gap-3 border-t border-neutral-200 pt-4">
                 <div className="w-36"><Button variant="outline" size="medium" loading={busy === 'draft'} disable={!canSave || anyBusy} onClick={() => save('draft')}>Save draft</Button></div>
-                <div className="w-44"><Button variant="outlined-secondry" size="medium" loading={busy === 'schedule'} disable={!canSave || anyBusy} onClick={() => save('schedule')}>{isEdit ? 'Save & schedule' : 'Schedule post'}</Button></div>
-                <div className="w-40"><Button variant="primary" size="medium" loading={busy === 'publish'} disable={!canSave || anyBusy} onClick={() => save('publish')}>{busy === 'publish' ? 'Publishing…' : 'Publish now'}</Button></div>
+                {mode === 'schedule' ? (
+                  <div className="w-44"><Button variant="primary" size="medium" loading={busy === 'schedule'} disable={!canSave || anyBusy} onClick={() => save('schedule')}>{busy === 'schedule' ? 'Scheduling…' : 'Schedule post'}</Button></div>
+                ) : (
+                  <div className="w-40"><Button variant="primary" size="medium" loading={busy === 'publish'} disable={!canSave || anyBusy} onClick={() => save('publish')}>{busy === 'publish' ? 'Publishing…' : 'Publish now'}</Button></div>
+                )}
               </div>
-              {busy === 'publish' && <p className="flex items-center gap-2 text-xs text-neutral-500"><Sparkles size={13} className="text-primary-800" /> Publishing to your connected accounts — this can take a few seconds for images.</p>}
+              {(busy === 'publish' || busy === 'schedule') && <p className="flex items-center gap-2 text-xs text-neutral-500"><Sparkles size={13} className="text-primary-800" /> Sending to your connected accounts — this can take a few seconds for images.</p>}
             </DemoCard>
           )}
 

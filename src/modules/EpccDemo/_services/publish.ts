@@ -34,7 +34,9 @@ async function imageBlob(url: string): Promise<Blob | null> {
   }
 }
 
-export async function publishPost(post: IPost): Promise<PublishOutcome[]> {
+// When scheduledPublishTime (unix seconds) is provided, the post is scheduled on
+// the platform instead of published immediately.
+export async function publishPost(post: IPost, scheduledPublishTime?: number): Promise<PublishOutcome[]> {
   const targets = post.platforms.filter((p) => SUPPORTED.includes(p));
   if (!targets.length) return [];
 
@@ -66,12 +68,13 @@ export async function publishPost(post: IPost): Promise<PublishOutcome[]> {
         fd.append('accountId', acct.accountId);
         fd.append('message', post.content);
         fd.append('image', blob, 'upload.jpg');
+        if (scheduledPublishTime) fd.append('scheduledPublishTime', String(scheduledPublishTime));
         res = await fetch('/api/posts/publish', { method: 'POST', body: fd });
       } else {
         res = await fetch('/api/posts/publish', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ platform, accountId: acct.accountId, message: post.content, imageUrl: isPublicUrl(img) ? img : undefined }),
+          body: JSON.stringify({ platform, accountId: acct.accountId, message: post.content, imageUrl: isPublicUrl(img) ? img : undefined, scheduledPublishTime }),
         });
       }
       const j = await res.json();
