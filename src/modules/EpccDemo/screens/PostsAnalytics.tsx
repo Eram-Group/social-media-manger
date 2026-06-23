@@ -1,5 +1,7 @@
+'use client';
+
 import { ReactNode, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Eye, Plus, Pencil, Trash2, AlertTriangle, Megaphone, List, Table2, LayoutGrid, Check, CalendarClock, XCircle, Search, Inbox } from 'lucide-react';
 import { Button } from '@UI/index';
@@ -22,8 +24,9 @@ type TViewMode = 'list' | 'table' | 'grid';
 type TView = { mode: 'list' } | { mode: 'create' } | { mode: 'edit'; post: IPost };
 
 export default function PostsAnalytics() {
-  const navigate = useNavigate();
-  const [params, setParams] = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+  const params = useSearchParams();
   const { posts, addPost, updatePost, deletePost, loadSample } = usePosts();
   const [view, setView] = useState<TView>(params.get('create') ? { mode: 'create' } : { mode: 'list' });
   const [viewMode, setViewMode] = useState<TViewMode>('table');
@@ -38,11 +41,11 @@ export default function PostsAnalytics() {
   const flash = (m: string) => { setToast(m); window.setTimeout(() => setToast(''), 2500); };
   const toggleSel = (id: string) => setSel((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
   const clearSel = () => setSel([]);
-  const promote = (p: IPost) => navigate(`${EPCC_ROUTES.PROMOTION}?post=${p.id}`);
+  const promote = (p: IPost) => router.push(`${EPCC_ROUTES.PROMOTION}?post=${p.id}`);
 
   // ---- compose (create / edit) ----
   if (view.mode !== 'list') {
-    const done = () => { setView({ mode: 'list' }); if (params.get('create') || params.get('date')) setParams({}, { replace: true }); };
+    const done = () => { setView({ mode: 'list' }); if (params.get('create') || params.get('date')) router.replace(pathname); };
     return (
       <Composer
         initial={view.mode === 'edit' ? view.post : undefined}

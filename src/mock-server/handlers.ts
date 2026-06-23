@@ -11,7 +11,7 @@ import { AI_SUGGESTIONS } from './ai';
 // REST mock API for the demo, served by MSW under VITE_API_BASE (/api).
 // Enabled only in mock mode (VITE_ENABLE_MSW=true). The UI currently reads the
 // same data in-memory; these endpoints make the mock layer real for any API wiring.
-const BASE = (import.meta.env.VITE_API_BASE as string) || '/api';
+const BASE = (process.env.NEXT_PUBLIC_API_BASE as string) || '/api';
 const url = (p: string) => `${BASE}${p}`;
 
 export const handlers = [

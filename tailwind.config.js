@@ -1,10 +1,10 @@
 /** @type {import('tailwindcss').Config} */
-import tailwindAnimate from 'tailwindcss-animate';
-import tailwindScrollbarHide from 'tailwind-scrollbar-hide';
+const tailwindAnimate = require('tailwindcss-animate');
+const tailwindScrollbarHide = require('tailwind-scrollbar-hide');
 
-export default {
+module.exports = {
   darkMode: ['class'],
-  content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
+  content: ['./app/**/*.{js,ts,jsx,tsx}', './src/**/*.{js,ts,jsx,tsx}'],
   theme: {
     fontFamily: {
       Montserrat: ['Montserrat', 'sans-serif'],

@@ -1,9 +1,12 @@
 // Lightweight OpenAI client for the EPCC demo (client-side only).
-// Reads the key from import.meta.env.VITE_OPENAI_API_KEY. If the key is missing
+// Reads the key from process.env.NEXT_PUBLIC_OPENAI_API_KEY. If the key is missing
 // or a request fails, every function gracefully falls back to canned EPCC content
 // AND surfaces the reason via `error` so the UI can show what happened.
+// NOTE: this is a temporary client-side setup carried over from the demo. Per the
+// go-live plan, OpenAI calls should move behind a backend route so the key is not
+// shipped to the browser.
 
-const API_KEY = import.meta.env.VITE_OPENAI_API_KEY as string | undefined;
+const API_KEY = process.env.NEXT_PUBLIC_OPENAI_API_KEY as string | undefined;
 const TEXT_MODEL = 'gpt-4o-mini';
 // This org's key exposes gpt-image-1 (not dall-e-3). gpt-image-1 returns base64.
 const IMAGE_MODEL = 'gpt-image-1';

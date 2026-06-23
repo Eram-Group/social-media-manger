@@ -1,5 +1,7 @@
+'use client';
+
 import { useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { usePathname, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Sparkles, X, Maximize2 } from 'lucide-react';
 import AiChat from './AiChat';
@@ -9,9 +11,9 @@ import { EPCC_ROUTES } from '../routes';
 // compact chat popup with the Chamber AI. Hidden on the full AI Assistant page.
 export default function AiAssistantWidget() {
   const [open, setOpen] = useState(false);
-  const location = useLocation();
-  const navigate = useNavigate();
-  if (location.pathname === EPCC_ROUTES.AI) return null; // page itself is the assistant
+  const pathname = usePathname();
+  const router = useRouter();
+  if (pathname === EPCC_ROUTES.AI) return null; // page itself is the assistant
   return (
     <>
       <AnimatePresence>
@@ -28,7 +30,7 @@ export default function AiAssistantWidget() {
                 <div><p className="text-sm font-semibold">Chamber AI</p><p className="text-[11px] text-white/80">Ask me anything</p></div>
               </div>
               <div className="flex items-center gap-2">
-                <button onClick={() => { navigate(EPCC_ROUTES.AI); setOpen(false); }} title="Open full screen" className="text-white/80 hover:text-white"><Maximize2 size={16} /></button>
+                <button onClick={() => { router.push(EPCC_ROUTES.AI); setOpen(false); }} title="Open full screen" className="text-white/80 hover:text-white"><Maximize2 size={16} /></button>
                 <button onClick={() => setOpen(false)} title="Close" className="text-white/80 hover:text-white"><X size={18} /></button>
               </div>
             </div>
