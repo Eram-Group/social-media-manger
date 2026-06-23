@@ -107,7 +107,14 @@ export default function PostsAnalytics() {
   // bulk selection
   const allSelected = filtered.length > 0 && filtered.every((p) => sel.includes(p.id));
   const toggleAll = () => setSel(allSelected ? [] : filtered.map((p) => p.id));
-  const bulkDelete = () => { sel.forEach((id) => deletePost(id)); flash(`${sel.length} post${sel.length > 1 ? 's' : ''} deleted`); clearSel(); };
+  const bulkDelete = async () => {
+    const ids = [...sel];
+    clearSel();
+    const results = await Promise.all(ids.map((id) => deletePost(id)));
+    const failed = results.filter((r) => !r.ok).length;
+    const ok = results.length - failed;
+    flash(failed ? `${ok} deleted · ${failed} couldn’t be deleted (e.g. Instagram)` : `${ok} post${ok > 1 ? 's' : ''} deleted ✓`);
+  };
   const bulkSchedule = () => { posts.filter((p) => sel.includes(p.id)).forEach((p) => updatePost({ ...p, status: 'scheduled' })); flash(`${sel.length} scheduled`); clearSel(); };
 
   const SelBox = ({ id }: { id: string }) => (
@@ -331,7 +338,7 @@ export default function PostsAnalytics() {
               <p className="mt-4 rounded-lg bg-neutral-100 p-3 text-sm text-neutral-700">{confirm.content}</p>
               <div className="mt-5 flex justify-end gap-3">
                 <div className="w-28"><Button variant="outline" size="medium" onClick={() => setConfirm(null)}>Cancel</Button></div>
-                <div className="w-36"><Button variant="destructive" size="medium" onClick={() => { deletePost(confirm.id); setConfirm(null); flash('Post deleted'); }}>Delete</Button></div>
+                <div className="w-36"><Button variant="destructive" size="medium" onClick={async () => { const p = confirm; setConfirm(null); const r = await deletePost(p.id); flash(r.ok ? 'Post deleted ✓' : r.errors[0] || 'Delete failed'); }}>Delete</Button></div>
               </div>
             </ModalPanel>
           </Backdrop>

@@ -105,4 +105,9 @@ export const instagramConnector: SocialConnector = {
     });
     return { remoteId: res.id, raw: res };
   },
+
+  // Instagram's Graph API does not support deleting media — surface that clearly.
+  async deletePost(): Promise<void> {
+    throw new Error("Instagram doesn't allow deleting posts via the API — remove it from the Instagram app.");
+  },
 };

@@ -48,11 +48,26 @@ export async function publishPost(post: IPost, scheduledPublishTime?: number): P
     return targets.map((platform) => ({ platform, ok: false, error: 'Could not load connected accounts' }));
   }
 
-  const img = firstImage(post);
-  const vid = post.video;
-  // Read local media bytes once so we can send them to each platform.
-  const imgBlob = isLocalUrl(img) ? await urlToBlob(img!) : null;
-  const vidBlob = isLocalUrl(vid) ? await urlToBlob(vid!) : null;
+  // Resolve media to a PUBLIC url usable by every platform (Instagram can't take
+  // raw bytes — it needs a public URL). Local uploads are hosted on Blob once.
+  const toPublic = async (u?: string): Promise<string | undefined> => {
+    if (!u) return undefined;
+    if (isPublicUrl(u)) return u;
+    if (!isLocalUrl(u)) return undefined;
+    const blob = await urlToBlob(u);
+    if (!blob) return undefined;
+    try {
+      const fd = new FormData();
+      fd.append('file', blob, blob.type.startsWith('video') ? 'upload.mp4' : 'upload.jpg');
+      const r = await fetch('/api/upload', { method: 'POST', body: fd }).then((x) => x.json());
+      return r.url || undefined;
+    } catch {
+      return undefined;
+    }
+  };
+
+  const imageUrl = await toPublic(firstImage(post));
+  const videoUrl = await toPublic(post.video);
   const outcomes: PublishOutcome[] = [];
 
   for (const platform of targets) {
@@ -62,30 +77,14 @@ export async function publishPost(post: IPost, scheduledPublishTime?: number): P
       continue;
     }
     try {
-      let res: Response;
-      if (vidBlob || imgBlob) {
-        // Multipart: upload the raw media bytes (works without a public URL).
-        const fd = new FormData();
-        fd.append('platform', platform);
-        fd.append('accountId', acct.accountId);
-        fd.append('message', post.content);
-        if (post.format) fd.append('format', post.format);
-        if (vidBlob) fd.append('video', vidBlob, 'upload.mp4');
-        else if (imgBlob) fd.append('image', imgBlob, 'upload.jpg');
-        if (scheduledPublishTime) fd.append('scheduledPublishTime', String(scheduledPublishTime));
-        res = await fetch('/api/posts/publish', { method: 'POST', body: fd });
-      } else {
-        res = await fetch('/api/posts/publish', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            platform, accountId: acct.accountId, message: post.content, format: post.format,
-            imageUrl: isPublicUrl(img) ? img : undefined,
-            videoUrl: isPublicUrl(vid) ? vid : undefined,
-            scheduledPublishTime,
-          }),
-        });
-      }
+      const res = await fetch('/api/posts/publish', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          platform, accountId: acct.accountId, message: post.content, format: post.format,
+          imageUrl, videoUrl, scheduledPublishTime,
+        }),
+      });
       const j = await res.json();
       if (res.ok && j.ok) {
         outcomes.push({ platform, accountId: acct.accountId, ok: true, remoteId: j.result.remoteId, url: j.result.url });

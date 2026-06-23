@@ -11,7 +11,7 @@ interface IPostsCtx {
   loading: boolean;
   addPost: (p: IPost) => void;
   updatePost: (p: IPost) => void;
-  deletePost: (id: string) => void;
+  deletePost: (id: string) => Promise<{ ok: boolean; errors: string[] }>;
   refresh: () => void;
   clearAll: () => void;
 }
@@ -51,20 +51,27 @@ export function PostsProvider({ children }: { children: ReactNode }) {
 
   const addPost = (p: IPost) => setPosts((prev) => [p, ...prev]);
   const updatePost = (p: IPost) => setPosts((prev) => prev.map((x) => (x.id === p.id ? p : x)));
-  const deletePost = (id: string) => {
-    // Delete from the platform too (so it doesn't reappear on the next refresh).
-    setPosts((prev) => {
-      const target = prev.find((x) => x.id === id);
-      const refs = target?.remoteRefs ?? [];
-      if (refs.length) {
-        fetch('/api/posts/delete', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ refs }),
-        }).catch(() => {});
+
+  // Delete from the platform, then drop locally. Returns per-ref errors (e.g.
+  // Instagram, which doesn't support deletion) so the UI can inform the user.
+  const deletePost = async (id: string): Promise<{ ok: boolean; errors: string[] }> => {
+    const target = posts.find((x) => x.id === id);
+    const refs = target?.remoteRefs ?? [];
+    let errors: string[] = [];
+    if (refs.length) {
+      try {
+        const res = await fetch('/api/posts/delete', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ refs }),
+        });
+        const j = await res.json();
+        errors = (j.results ?? []).filter((r: any) => !r.ok).map((r: any) => r.error);
+      } catch (e) {
+        errors = [(e as Error).message];
       }
-      return prev.filter((x) => x.id !== id);
-    });
+    }
+    // Remove locally only if it isn't still on a platform (so failed deletes stay visible).
+    if (!errors.length) setPosts((prev) => prev.filter((x) => x.id !== id));
+    return { ok: errors.length === 0, errors };
   };
   const clearAll = () => setPosts([]);
 
