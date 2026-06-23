@@ -36,6 +36,30 @@ export async function GET() {
             remoteRefs: [{ platform: 'facebook', accountId: acc.accountId, remoteId: p.id, url: p.permalink_url }],
           });
         }
+        // Facebook stories live on a separate edge (ephemeral, ~24h).
+        try {
+          const st = await graphGet<{ data: any[] }>(`${acc.accountId}/stories`, {
+            access_token: acc.accessToken,
+            fields: 'post_id,status,creation_time,media_type,url,media_id',
+            limit: '50',
+          });
+          for (const p of st.data ?? []) {
+            const ts = p.creation_time ? new Date(Number(p.creation_time) * 1000).toISOString() : '';
+            posts.push({
+              id: p.post_id || p.media_id,
+              content: '(story)',
+              platforms: ['facebook'],
+              date: ts.slice(0, 10),
+              time: ts.slice(11, 16),
+              status: 'published',
+              type: 'post',
+              format: 'story',
+              remoteRefs: [{ platform: 'facebook', accountId: acc.accountId, remoteId: p.post_id || p.media_id, url: p.url }],
+            });
+          }
+        } catch (e) {
+          console.warn(`[posts/list] FB stories failed:`, (e as Error).message);
+        }
       } else if (acc.platform === 'instagram') {
         const r = await graphGet<{ data: any[] }>(`${acc.accountId}/media`, {
           access_token: acc.accessToken,
@@ -98,7 +122,11 @@ export async function GET() {
   // went to) instead of splitting into one row per platform.
   const groups = new Map<string, IPost>();
   for (const p of posts) {
-    const key = `${p.date}|${(p.content || '').trim().slice(0, 120)}`;
+    const caption = (p.content || '').trim();
+    // Only group real cross-posted captions. Stories / captionless posts get a
+    // unique key (their id) so they never merge into a single row.
+    const groupable = caption && caption !== '(story)' && caption !== '(no caption)' && p.format !== 'story';
+    const key = groupable ? `${p.date}|${caption.slice(0, 120)}` : `id:${p.id}`;
     const existing = groups.get(key);
     if (existing) {
       for (const pl of p.platforms) if (!existing.platforms.includes(pl)) existing.platforms.push(pl);
