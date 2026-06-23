@@ -12,8 +12,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
   }
   const { platform, accountId, commentId, message } = body ?? {};
-  if (platform !== 'facebook') {
-    return NextResponse.json({ error: 'Replying is only supported for Facebook right now' }, { status: 400 });
+  if (platform !== 'facebook' && platform !== 'instagram') {
+    return NextResponse.json({ error: `Replying not supported for ${platform}` }, { status: 400 });
   }
   if (!accountId || !commentId || !message?.trim()) {
     return NextResponse.json({ error: 'accountId, commentId and message are required' }, { status: 400 });
@@ -23,7 +23,10 @@ export async function POST(req: NextRequest) {
   if (!account) return NextResponse.json({ error: 'Account not connected' }, { status: 404 });
 
   try {
-    const res = await graphPost<{ id: string }>(`${commentId}/comments`, {
+    // Facebook: POST /{comment-id}/comments {message}
+    // Instagram: POST /{comment-id}/replies {message}
+    const edge = platform === 'instagram' ? 'replies' : 'comments';
+    const res = await graphPost<{ id: string }>(`${commentId}/${edge}`, {
       message: message.trim(),
       access_token: account.accessToken,
     });

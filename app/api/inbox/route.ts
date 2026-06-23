@@ -32,6 +32,44 @@ export async function GET() {
   const items: InboxItem[] = [];
 
   for (const acc of accounts) {
+    // Instagram comments come from each media's /comments edge.
+    if (acc.platform === 'instagram') {
+      try {
+        const media = await graphGet<{ data: any[] }>(`${acc.accountId}/media`, {
+          access_token: acc.accessToken,
+          fields: 'id,caption,permalink,comments.limit(50){id,username,text,timestamp,replies{id,username,text,timestamp}}',
+          limit: '25',
+        });
+        for (const m of media.data ?? []) {
+          const excerpt = (m.caption ?? '').slice(0, 60);
+          for (const c of m.comments?.data ?? []) {
+            const replies: InboxReply[] = (c.replies?.data ?? []).map((rep: any) => ({
+              id: rep.id,
+              author: rep.username ?? 'User',
+              text: rep.text ?? '',
+              time: rep.timestamp ?? '',
+              fromPage: rep.username && acc.name ? `@${rep.username}` === acc.name : false,
+            }));
+            items.push({
+              id: c.id,
+              platform: 'instagram',
+              accountId: acc.accountId,
+              author: c.username ?? 'Instagram user',
+              text: c.text ?? '',
+              time: c.timestamp ?? '',
+              likeCount: 0,
+              postId: m.id,
+              postExcerpt: excerpt,
+              permalink: m.permalink,
+              replies,
+            });
+          }
+        }
+      } catch (e) {
+        console.warn(`[inbox] IG failed for ${acc.accountId}:`, (e as Error).message);
+      }
+      continue;
+    }
     if (acc.platform !== 'facebook') continue;
     try {
       const r = await graphGet<{ data: any[] }>(`${acc.accountId}/posts`, {
