@@ -33,6 +33,21 @@ export const facebookConnector: SocialConnector = {
   async publish(account: ConnectedAccount, input: PublishInput): Promise<PublishResult> {
     const scheduling = typeof input.scheduledPublishTime === 'number';
 
+    // Video / reel / story -> /{page-id}/videos (the text becomes the description).
+    if (input.videoBlob || input.videoUrl) {
+      const form = new FormData();
+      if (input.videoBlob) form.append('source', input.videoBlob, 'upload.mp4');
+      else if (input.videoUrl) form.append('file_url', input.videoUrl);
+      if (input.message) form.append('description', input.message);
+      form.append('access_token', account.accessToken);
+      if (scheduling) {
+        form.append('published', 'false');
+        form.append('scheduled_publish_time', String(input.scheduledPublishTime));
+      }
+      const res = await graphPostForm<{ id: string }>(`${account.accountId}/videos`, form);
+      return { remoteId: res.id, url: `https://www.facebook.com/${res.id}`, raw: res };
+    }
+
     // Photo post from raw bytes -> upload directly via multipart `source`
     // (no public URL needed — handles local uploads from the composer).
     if (input.imageBlob) {

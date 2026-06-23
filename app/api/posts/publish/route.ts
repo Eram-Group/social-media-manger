@@ -29,6 +29,8 @@ export async function POST(req: NextRequest) {
       if (sched) input.scheduledPublishTime = Number(sched);
       const file = form.get('image');
       if (file instanceof Blob && file.size > 0) input.imageBlob = file;
+      const video = form.get('video');
+      if (video instanceof Blob && video.size > 0) input.videoBlob = video;
     } else {
       const body = await req.json();
       platform = body?.platform || '';
@@ -36,6 +38,7 @@ export async function POST(req: NextRequest) {
       accessToken = body?.accessToken;
       input.message = body?.message;
       input.imageUrl = body?.imageUrl;
+      input.videoUrl = body?.videoUrl;
       input.link = body?.link;
       input.scheduledPublishTime = body?.scheduledPublishTime;
     }

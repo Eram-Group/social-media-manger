@@ -23,10 +23,10 @@ interface PublicAccount {
 
 const firstImage = (post: IPost): string | undefined => post.media?.[0];
 const isPublicUrl = (u?: string) => !!u && /^https?:\/\//.test(u);
-const isLocalImage = (u?: string) => !!u && (u.startsWith('blob:') || u.startsWith('data:'));
+const isLocalUrl = (u?: string) => !!u && (u.startsWith('blob:') || u.startsWith('data:'));
 
-// Fetch a local blob:/data: image back into a Blob so we can upload its bytes.
-async function imageBlob(url: string): Promise<Blob | null> {
+// Fetch a local blob:/data: URL back into a Blob so we can upload its bytes.
+async function urlToBlob(url: string): Promise<Blob | null> {
   try {
     return await fetch(url).then((r) => r.blob());
   } catch {
@@ -49,8 +49,10 @@ export async function publishPost(post: IPost, scheduledPublishTime?: number): P
   }
 
   const img = firstImage(post);
-  // For a local upload, read the bytes once so we can send them to each platform.
-  const blob = isLocalImage(img) ? await imageBlob(img!) : null;
+  const vid = post.video;
+  // Read local media bytes once so we can send them to each platform.
+  const imgBlob = isLocalUrl(img) ? await urlToBlob(img!) : null;
+  const vidBlob = isLocalUrl(vid) ? await urlToBlob(vid!) : null;
   const outcomes: PublishOutcome[] = [];
 
   for (const platform of targets) {
@@ -61,20 +63,26 @@ export async function publishPost(post: IPost, scheduledPublishTime?: number): P
     }
     try {
       let res: Response;
-      if (blob) {
-        // Multipart: upload the raw image bytes (works without a public URL).
+      if (vidBlob || imgBlob) {
+        // Multipart: upload the raw media bytes (works without a public URL).
         const fd = new FormData();
         fd.append('platform', platform);
         fd.append('accountId', acct.accountId);
         fd.append('message', post.content);
-        fd.append('image', blob, 'upload.jpg');
+        if (vidBlob) fd.append('video', vidBlob, 'upload.mp4');
+        else if (imgBlob) fd.append('image', imgBlob, 'upload.jpg');
         if (scheduledPublishTime) fd.append('scheduledPublishTime', String(scheduledPublishTime));
         res = await fetch('/api/posts/publish', { method: 'POST', body: fd });
       } else {
         res = await fetch('/api/posts/publish', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ platform, accountId: acct.accountId, message: post.content, imageUrl: isPublicUrl(img) ? img : undefined, scheduledPublishTime }),
+          body: JSON.stringify({
+            platform, accountId: acct.accountId, message: post.content,
+            imageUrl: isPublicUrl(img) ? img : undefined,
+            videoUrl: isPublicUrl(vid) ? vid : undefined,
+            scheduledPublishTime,
+          }),
         });
       }
       const j = await res.json();

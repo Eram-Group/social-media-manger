@@ -17,6 +17,7 @@ import { IPost, FORMAT_SUPPORT, PLATFORM_FIELDS, TPostFormat } from '@/mock-serv
 import { SUGGESTED_SLOTS } from '@/mock-server/besttime';
 import { newPostId } from '@/mock-server/posts-store';
 import { generatePost, generateImage, generateVideo, generateMeta, hasOpenAIKey } from '../_services/openai';
+import { useConnectedPlatforms } from '../_services/useConnectedPlatforms';
 
 type TSaveAction = 'draft' | 'schedule' | 'publish';
 const LIMITS: Record<TPlatformId, number> = { x: 280, instagram: 2200, facebook: 5000, linkedin: 3000, tiktok: 2200, snapchat: 250 };
@@ -45,7 +46,8 @@ export default function Composer({
   const [imagePrompt, setImagePrompt] = useState('Modern Dammam skyline at golden hour, business event banner');
   const [image, setImage] = useState<string | undefined>();
   const [isVideo, setIsVideo] = useState(false);
-  const [selected, setSelected] = useState<TPlatformId[]>(initial?.platforms ?? ['x', 'instagram', 'linkedin']);
+  const { connected } = useConnectedPlatforms();
+  const [selected, setSelected] = useState<TPlatformId[]>(initial?.platforms ?? []);
   const [date, setDate] = useState(initial?.date ?? initialDate ?? '2026-06-25');
   const [time, setTime] = useState(initial?.time ?? '09:00');
   const [mode, setMode] = useState<'now' | 'schedule'>(initial?.status === 'scheduled' ? 'schedule' : 'now');
@@ -164,29 +166,40 @@ export default function Composer({
                 <div className="flex items-center justify-between">
                   <div>
                     <span className="text-sm font-semibold text-text-dark">Target platforms</span>
-                    <p className="text-xs text-neutral-500">{selected.length} of {PLATFORMS.length} selected · {selected.reduce((s, p) => { const a = ACCOUNTS.find((x) => x.platform === p); return s + (a?.followers ?? 0); }, 0) > 0 ? formatFollowers(selected.reduce((s, p) => { const a = ACCOUNTS.find((x) => x.platform === p); return s + (a?.followers ?? 0); }, 0)) : '0'} reach</p>
+                    <p className="text-xs text-neutral-500">{connected.length === 0 ? 'No accounts connected yet' : `${selected.length} of ${connected.length} connected selected`}</p>
                   </div>
-                  <button onClick={() => setSelected(selected.length === PLATFORMS.length ? [] : PLATFORMS.map((p) => p.id))} className="text-xs font-medium text-primary-800 hover:underline">{selected.length === PLATFORMS.length ? 'Clear all' : 'Select all'}</button>
+                  {connected.length > 0 && (
+                    <button onClick={() => setSelected(selected.length === connected.length ? [] : [...connected])} className="text-xs font-medium text-primary-800 hover:underline">{selected.length === connected.length ? 'Clear all' : 'Select all'}</button>
+                  )}
                 </div>
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                  {PLATFORMS.map((p) => {
-                    const on = selected.includes(p.id);
-                    const acc = ACCOUNTS.find((a) => a.platform === p.id);
-                    const feedOnly = format !== 'post' && !FORMAT_SUPPORT[format].includes(p.id);
-                    return (
-                      <button key={p.id} onClick={() => toggle(p.id)}
-                        className={cn('flex items-center gap-3 rounded-xl border p-3 text-left transition-all', on ? 'border-primary-400 bg-primary-100' : 'border-neutral-200 hover:bg-neutral-100')}>
-                        <PlatformChip platform={p.id} size="md" />
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium text-text-dark">{p.name}</p>
-                          <p className="truncate text-xs text-neutral-500">{acc?.handle ?? '—'} · {formatFollowers(acc?.followers ?? 0)} followers</p>
-                        </div>
-                        {feedOnly && <span className="shrink-0 rounded-full bg-warnings-cautionBg px-2 py-0.5 text-[10px] font-medium text-warnings-caution">feed only</span>}
-                        <span className={cn('flex h-5 w-5 shrink-0 items-center justify-center rounded-full border', on ? 'border-primary-800 bg-primary-800 text-white' : 'border-neutral-300')}>{on && <Check size={12} />}</span>
-                      </button>
-                    );
-                  })}
-                </div>
+
+                {connected.length === 0 ? (
+                  <div className="flex flex-col items-center gap-3 rounded-lg bg-neutral-100 py-8 text-center">
+                    <p className="text-sm text-neutral-600">You haven’t connected any accounts yet.</p>
+                    <a href="/epcc-demo/accounts" className="rounded-lg bg-primary-800 px-4 py-2 text-sm font-medium text-white hover:bg-primary-900">Connect an account →</a>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    {PLATFORMS.map((p) => {
+                      const isConnected = connected.includes(p.id);
+                      const on = selected.includes(p.id);
+                      const feedOnly = format !== 'post' && !FORMAT_SUPPORT[format].includes(p.id);
+                      return (
+                        <button key={p.id} disabled={!isConnected} onClick={() => isConnected && toggle(p.id)}
+                          className={cn('flex items-center gap-3 rounded-xl border p-3 text-left transition-all',
+                            !isConnected ? 'cursor-not-allowed border-neutral-200 bg-neutral-100 opacity-60' : on ? 'border-primary-400 bg-primary-100' : 'border-neutral-200 hover:bg-neutral-100')}>
+                          <PlatformChip platform={p.id} size="md" />
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-medium text-text-dark">{p.name}</p>
+                            <p className="truncate text-xs text-neutral-500">{isConnected ? 'Connected' : 'Not connected'}</p>
+                          </div>
+                          {isConnected && feedOnly && <span className="shrink-0 rounded-full bg-warnings-cautionBg px-2 py-0.5 text-[10px] font-medium text-warnings-caution">feed only</span>}
+                          <span className={cn('flex h-5 w-5 shrink-0 items-center justify-center rounded-full border', on ? 'border-primary-800 bg-primary-800 text-white' : 'border-neutral-300')}>{on && <Check size={12} />}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </DemoCard>
             </>
           )}

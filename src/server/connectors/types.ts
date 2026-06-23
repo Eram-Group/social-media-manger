@@ -23,6 +23,8 @@ export interface PublishInput {
   message?: string;             // caption / text body
   imageUrl?: string;            // public URL of an image to attach
   imageBlob?: Blob;             // raw image bytes (uploaded directly, no public URL needed)
+  videoUrl?: string;            // public URL of a video
+  videoBlob?: Blob;             // raw video bytes (uploaded directly)
   link?: string;               // optional link (text posts)
   scheduledPublishTime?: number; // unix seconds; if set + supported, schedule it
 }
