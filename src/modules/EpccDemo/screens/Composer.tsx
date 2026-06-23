@@ -64,14 +64,38 @@ export default function Composer({
   const [genImg, setGenImg] = useState(false);
   const [genVid, setGenVid] = useState(false);
   const [genMeta, setGenMeta] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [note, setNote] = useState<{ kind: 'ok' | 'warn'; text: string } | null>(null);
 
-  const onDrop = (files: File[]) => {
+  // Upload the file to public hosting (Vercel Blob) so Instagram can fetch it and
+  // Facebook gets a reliable URL. Falls back to a local data URL if hosting is off
+  // (Facebook still works via byte upload; Instagram needs the public URL).
+  const onDrop = async (files: File[]) => {
     const file = files[0]; if (!file) return;
     const vid = file.type.startsWith('video');
-    const reader = new FileReader();
-    reader.onload = () => { setImage(reader.result as string); setIsVideo(vid); setNote({ kind: 'ok', text: vid ? 'Video uploaded' : 'Image uploaded' }); };
-    reader.readAsDataURL(file);
+    setIsVideo(vid);
+    setUploading(true);
+    setNote(null);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const res = await fetch('/api/upload', { method: 'POST', body: fd });
+      const j = await res.json();
+      if (res.ok && j.url) {
+        setImage(j.url);
+        setNote({ kind: 'ok', text: vid ? 'Video uploaded' : 'Image uploaded' });
+      } else {
+        // Fallback: local data URL (works for Facebook, not Instagram).
+        const reader = new FileReader();
+        reader.onload = () => setImage(reader.result as string);
+        reader.readAsDataURL(file);
+        setNote({ kind: 'warn', text: `${j.error || 'Hosting unavailable'} — Instagram needs a hosted image.` });
+      }
+    } catch (e) {
+      setNote({ kind: 'warn', text: (e as Error).message });
+    } finally {
+      setUploading(false);
+    }
   };
   const { getRootProps, getInputProps, isDragActive } = useDropzone({ onDrop, accept: { 'image/*': [], 'video/*': [] }, multiple: false });
 
@@ -225,7 +249,7 @@ export default function Composer({
 
               <DemoCard className="flex flex-col gap-3">
                 <div className="flex items-center gap-2"><ImagePlus size={16} className="text-primary-800" /><span className="text-sm font-semibold text-text-dark">Media</span></div>
-                {genImg || genVid ? <ImageGenLoader kind={genVid ? 'video' : 'image'} hint={genVid ? 'AI video (Sora) can take up to a minute…' : undefined} /> : image ? (
+                {uploading ? <ImageGenLoader kind={isVideo ? 'video' : 'image'} hint="Uploading to hosting…" /> : genImg || genVid ? <ImageGenLoader kind={genVid ? 'video' : 'image'} hint={genVid ? 'AI video (Sora) can take up to a minute…' : undefined} /> : image ? (
                   <div className="relative overflow-hidden rounded-lg border border-neutral-200">
                     {isVideo ? <video src={image} className="max-h-64 w-full object-cover" muted loop autoPlay playsInline controls /> : <img src={image} alt={altText} className="max-h-64 w-full object-cover" />}
                     <button onClick={() => { setImage(undefined); setIsVideo(false); }} className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-black/60 text-white"><X size={15} /></button>
