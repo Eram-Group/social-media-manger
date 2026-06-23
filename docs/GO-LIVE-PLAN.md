@@ -183,21 +183,43 @@ later via `GET /{post_id}/insights`.
 
 ---
 
-## 7. What I need from you to start
+## 7. Decisions locked (2026-06-23)
 
-To begin **Phase 0 + 1** I need:
-1. **Backend decision** — OK to migrate this Vite app into **Next.js** (so we get server
-   routes on Vercel), or do you want a **separate** API service?
-2. **Database** — preference? (Vercel Postgres / Neon / Supabase are all easy.)
-3. **Meta access** — are you an **admin of the Chamber's Facebook Page**, and do you have a
-   **Meta Business** account? (Needed to create the app and post.)
-4. **App ID / App Secret** — once the Meta app exists, I'll wire the OAuth flow. (Give the
-   secret to the backend env only — never commit it.)
-5. Confirm the **first milestone scope**: "Connect Facebook + publish one real post to the
-   Chamber Page from the composer."
+- **Backend:** migrate this Vite app into **Next.js** (App Router) — server routes host the
+  OAuth callbacks + connector calls, deployed on Vercel.
+- **Database:** **Vercel Postgres / Neon**.
+- **Meta access:** confirmed — you are a Page admin and have a Meta Business account. ✅
 
-Once I have #1–#3, I can scaffold the backend, the connector interface, and the Facebook
-connector, and we go for the first live post.
+### Still needed from you (when we reach the wiring step)
+- **Meta App ID + App Secret** (after we create the app) → goes into backend env only.
+- The **Chamber Facebook Page ID** (we can also fetch it via `/me/accounts`).
+
+---
+
+## 8. Concrete task breakdown — Phase 0 + 1
+
+### Phase 0 — Foundation (the migration)
+- [ ] Migrate Vite → **Next.js (App Router)**; move screens/components under it, keep the
+      existing UI, Tailwind, and `@` alias. Replace `react-router` routes with Next routes.
+- [ ] Provision **Neon/Vercel Postgres**; add an ORM (Prisma or Drizzle).
+- [ ] Schema: `connected_accounts` (platform, page_id, token **encrypted**, expiry),
+      `posts`, `post_targets` (per-platform remoteId + status), `metrics`.
+- [ ] Move the **OpenAI key server-side** — add `/api/ai/*` routes, drop `VITE_OPENAI_API_KEY`
+      from the client, **rotate the leaked key**.
+- [ ] Add the **`SocialConnector`** interface + a token vault (encrypt at rest).
+
+### Phase 1 — Facebook first post (Dev Mode, no review)
+- [ ] Create the **Meta Business app** (Facebook Login + Pages API products), set redirect
+      URI `https://<app>/api/connect/facebook/callback`, add yourself as Admin/Tester.
+- [ ] Build `GET /api/connect/facebook` → redirect to FB OAuth (scopes:
+      `pages_show_list`, `pages_read_engagement`, `pages_manage_posts`).
+- [ ] Build the **callback**: code → long-lived user token → `/me/accounts` → store the
+      **Page access token** (encrypted) as a `connected_account`.
+- [ ] Build `POST /api/posts/publish`: for each `facebook` target call
+      `POST /v25.0/{page-id}/feed` (or `/photos`); save the returned `post_id`.
+- [ ] Wire the existing **composer "Publish"** button to the new endpoint; show real
+      success/error.
+- [ ] **Milestone:** a real post appears on the Chamber Page, published from the app. 🎉
 
 ---
 
