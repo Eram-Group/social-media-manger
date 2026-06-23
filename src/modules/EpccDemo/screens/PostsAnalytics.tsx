@@ -13,8 +13,9 @@ import PostThumb from '../_components/PostThumb';
 import Composer from './Composer';
 import { usePosts } from '@/mock-server/posts-store';
 import { IPost, getPostAnalytics, TPostStatus } from '@/mock-server/posts';
-import { PLATFORMS, TPlatformId } from '@/mock-server/platforms';
+import { PLATFORMS, TPlatformId, getPlatform } from '@/mock-server/platforms';
 import { EPCC_ROUTES } from '../routes';
+import { publishPost, outcomesToRefs } from '../_services/publish';
 
 const tone: Record<TPostStatus, 'success' | 'info' | 'caution'> = {
   published: 'success', scheduled: 'info', draft: 'caution',
@@ -51,10 +52,29 @@ export default function PostsAnalytics() {
         initial={view.mode === 'edit' ? view.post : undefined}
         initialDate={view.mode === 'create' ? params.get('date') ?? undefined : undefined}
         onCancel={done}
-        onSave={(post, action) => {
-          if (view.mode === 'edit') updatePost(post); else addPost(post);
+        onSave={async (post, action) => {
+          let finalPost = post;
+          let message = action === 'publish' ? 'Post published ✓' : action === 'schedule' ? 'Post scheduled ✓' : 'Draft saved ✓';
+
+          if (action === 'publish') {
+            const outcomes = await publishPost(post);
+            if (outcomes.length) {
+              const ok = outcomes.filter((o) => o.ok);
+              const failed = outcomes.filter((o) => !o.ok);
+              finalPost = { ...post, remoteRefs: outcomesToRefs(outcomes) };
+              if (ok.length && !failed.length) {
+                message = `Published live to ${ok.map((o) => getPlatform(o.platform).name).join(', ')} ✓`;
+              } else if (ok.length && failed.length) {
+                message = `Published to ${ok.map((o) => getPlatform(o.platform).name).join(', ')}; ${failed.map((o) => `${getPlatform(o.platform).name}: ${o.error}`).join(', ')}`;
+              } else {
+                message = `Publish failed — ${failed.map((o) => `${getPlatform(o.platform).name}: ${o.error}`).join(', ')}`;
+              }
+            }
+          }
+
+          if (view.mode === 'edit') updatePost(finalPost); else addPost(finalPost);
           done();
-          flash(action === 'publish' ? 'Post published ✓' : action === 'schedule' ? 'Post scheduled ✓' : 'Draft saved ✓');
+          flash(message);
         }}
       />
     );

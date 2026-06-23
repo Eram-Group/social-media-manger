@@ -52,6 +52,15 @@ export const FORMAT_SUPPORT: Record<TPostFormat, TPlatformId[]> = {
   video: ['x', 'instagram', 'linkedin', 'facebook', 'snapchat', 'tiktok'],
 };
 
+// A reference to a post that was really published to a platform, so we can read
+// its live analytics back later.
+export interface IPostRemoteRef {
+  platform: TPlatformId;
+  accountId: string;
+  remoteId: string;
+  url?: string;
+}
+
 export interface IPost {
   id: string;
   content: string;
@@ -68,6 +77,7 @@ export interface IPost {
   shares?: number;
   media?: string[]; // image URLs (1 = single image, many = gallery)
   video?: string; // video URL (reels / video posts)
+  remoteRefs?: IPostRemoteRef[]; // set when really published to a connected platform
 }
 
 const IMG = (seed: string) => `https://picsum.photos/seed/${seed}/800/800`;

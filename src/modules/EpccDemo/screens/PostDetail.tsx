@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
@@ -62,6 +62,23 @@ export default function PostDetail() {
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [replyDraft, setReplyDraft] = useState('');
 
+  // Live metrics for posts that were really published to a connected platform.
+  const ref = post?.remoteRefs?.[0];
+  const [live, setLive] = useState<{ loading: boolean; error?: string; data?: any }>({ loading: false });
+  const loadLive = () => {
+    if (!ref) return;
+    setLive({ loading: true });
+    fetch(`/api/posts/insights?platform=${ref.platform}&accountId=${ref.accountId}&remoteId=${encodeURIComponent(ref.remoteId)}`)
+      .then((r) => r.json())
+      .then((d) => setLive(d.ok ? { loading: false, data: d } : { loading: false, error: d.error }))
+      .catch((e) => setLive({ loading: false, error: (e as Error).message }));
+  };
+  useEffect(() => {
+    if (!ref) return;
+    loadLive();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ref?.platform, ref?.accountId, ref?.remoteId]);
+
   if (!post) {
     return (
       <div className="flex flex-col items-center gap-4 py-20 text-center">
@@ -113,6 +130,40 @@ export default function PostDetail() {
           <button onClick={() => { deletePost(post.id); router.push(EPCC_ROUTES.POSTS); }} className="flex items-center gap-2 rounded-lg bg-text-red/5 px-4 py-2 text-sm font-medium text-text-red hover:bg-text-red/10"><Trash2 size={15} /> Delete</button>
         </div>
       </div>
+
+      {/* Live metrics — only for posts really published to a connected platform */}
+      {ref && (
+        <DemoCard className="flex flex-col gap-4 border-warnings-success/30 bg-warnings-successBg/40">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <span className="flex items-center gap-1.5 rounded-full bg-warnings-success/15 px-2.5 py-1 text-xs font-semibold text-warnings-success">
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-warnings-success" /> LIVE
+              </span>
+              <PlatformChip platform={ref.platform} size="sm" withLabel />
+              <span className="text-sm text-neutral-600">Real metrics from {getPlatform(ref.platform).name}</span>
+            </div>
+            <div className="flex items-center gap-3">
+              {(live.data?.permalink || ref.url) && (
+                <a href={live.data?.permalink || ref.url} target="_blank" rel="noreferrer" className="text-xs font-medium text-primary-800 hover:underline">View live post ↗</a>
+              )}
+              <button onClick={loadLive} disabled={live.loading} className="flex items-center gap-1 text-xs font-medium text-neutral-700 hover:underline disabled:opacity-50">
+                <RotateCcw size={13} className={cn(live.loading && 'animate-spin')} /> Refresh
+              </button>
+            </div>
+          </div>
+          {live.error ? (
+            <p className="text-sm text-text-red">Couldn’t load live metrics: {live.error}</p>
+          ) : (
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <LiveStat label="Reach" value={live.loading ? '…' : (live.data?.metrics?.reach != null ? formatFollowers(live.data.metrics.reach) : '—')} />
+              <LiveStat label="Likes" value={live.loading ? '…' : (live.data?.metrics?.likes ?? 0).toLocaleString()} />
+              <LiveStat label="Comments" value={live.loading ? '…' : (live.data?.metrics?.comments ?? 0).toLocaleString()} />
+              <LiveStat label="Shares" value={live.loading ? '…' : (live.data?.metrics?.shares ?? 0).toLocaleString()} />
+            </div>
+          )}
+          <p className="text-xs text-neutral-500">Reach/impressions depend on what the platform exposes; new posts and small audiences may report 0.</p>
+        </DemoCard>
+      )}
 
       {/* Post hero */}
       <DemoCard className="flex flex-col gap-5 lg:flex-row">
@@ -393,4 +444,11 @@ const Tile = ({ icon: Icon, tint, label, value }: { icon: typeof Eye; tint: stri
       <p className="truncate text-xs text-neutral-500">{label}</p>
     </div>
   </DemoCard>
+);
+
+const LiveStat = ({ label, value }: { label: string; value: string }) => (
+  <div className="rounded-lg border border-warnings-success/20 bg-white p-3">
+    <p className="font-Sora text-xl font-semibold text-text-dark">{value}</p>
+    <p className="text-xs text-neutral-500">{label}</p>
+  </div>
 );
