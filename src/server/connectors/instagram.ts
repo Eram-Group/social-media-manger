@@ -15,6 +15,7 @@ const DEFAULT_SCOPES = [
   'instagram_basic',
   'instagram_content_publish',
   'instagram_manage_insights',
+  'instagram_manage_comments',
   'pages_show_list',
   'pages_read_engagement',
   'read_insights',

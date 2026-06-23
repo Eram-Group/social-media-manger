@@ -117,12 +117,48 @@ export default function PostDetail() {
     setComments((c) => [{ id: `c_${c.length}_${t.length}`, name: 'EP Chamber', platform: commentPlatform === 'all' ? (post.platforms[0] ?? 'x') : commentPlatform, text: t, time: 'now', likes: 0, replies: [] }, ...c]);
     setDraft('');
   };
-  const addReply = (cid: string) => {
-    const t = replyDraft.trim(); if (!t) return;
-    setComments((cs) => cs.map((c) => (c.id === cid ? { ...c, replies: [...c.replies, { id: `r_${c.replies.length}_${t.length}`, text: t, time: 'now', likes: 0 }] } : c)));
-    setReplyDraft(''); setReplyingTo(null);
+  const [replyBusy, setReplyBusy] = useState(false);
+  const addReply = async (cid: string) => {
+    const t = replyDraft.trim();
+    if (!t || !ref || replyBusy) return;
+    setReplyBusy(true);
+    try {
+      const res = await fetch('/api/inbox/reply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ platform: ref.platform, accountId: ref.accountId, commentId: cid, message: t }),
+      });
+      const j = await res.json();
+      if (res.ok && j.ok) {
+        setComments((cs) => cs.map((c) => (c.id === cid ? { ...c, replies: [...c.replies, { id: j.id || `r_${c.replies.length}`, text: t, time: 'now', likes: 0 }] } : c)));
+        setReplyDraft(''); setReplyingTo(null);
+      } else {
+        alert(`Reply failed: ${j.error || 'unknown error'}`);
+      }
+    } catch (e) {
+      alert(`Reply failed: ${(e as Error).message}`);
+    } finally {
+      setReplyBusy(false);
+    }
   };
-  const deleteComment = (cid: string) => setComments((cs) => cs.filter((c) => c.id !== cid));
+  // Real moderation: hide or delete a comment on the platform.
+  const moderate = async (cid: string, action: 'hide' | 'delete') => {
+    if (!ref) return;
+    const prev = comments;
+    setComments((cs) => cs.filter((c) => c.id !== cid)); // optimistic
+    try {
+      const res = await fetch('/api/inbox/comment-action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, platform: ref.platform, accountId: ref.accountId, commentId: cid }),
+      });
+      const j = await res.json();
+      if (!res.ok || !j.ok) { alert(`${action} failed: ${j.error || 'error'}`); setComments(prev); }
+    } catch (e) {
+      alert(`${action} failed: ${(e as Error).message}`); setComments(prev);
+    }
+  };
+  const deleteComment = (cid: string) => moderate(cid, 'hide');
   const deleteReply = (cid: string, rid: string) => setComments((cs) => cs.map((c) => (c.id === cid ? { ...c, replies: c.replies.filter((r) => r.id !== rid) } : c)));
   const toggleBlock = (name: string) => setBlocked((b) => (b.includes(name) ? b.filter((x) => x !== name) : [...b, name]));
   const likeComment = (cid: string) => canModerate && setComments((cs) => cs.map((c) => (c.id === cid ? { ...c, liked: !c.liked, likes: c.likes + (c.liked ? -1 : 1) } : c)));
@@ -277,13 +313,10 @@ export default function PostDetail() {
                             <p className="text-sm"><span className="font-medium text-text-dark">{c.name}</span> <span className="text-xs text-neutral-400">· {c.time}</span></p>
                             <p className="text-sm text-neutral-700">{c.text}</p>
                             <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-neutral-500">
-                              <button onClick={() => likeComment(c.id)} disabled={!canModerate} title={canModerate ? 'Like as the Chamber' : undefined}
-                                className={cn('flex items-center gap-1', c.liked ? 'font-medium text-text-red' : canModerate ? 'hover:text-text-red' : '')}>
-                                <Heart size={12} className={cn(c.liked && 'fill-current')} /> {c.likes}
-                              </button>
+                              <span className="flex items-center gap-1"><Heart size={12} /> {c.likes}</span>
                               {canModerate && <button onClick={() => setReplyingTo(replyingTo === c.id ? null : c.id)} className="flex items-center gap-1 font-medium text-primary-800 hover:underline"><CornerDownRight size={11} /> Reply</button>}
-                              {canModerate && <button onClick={() => deleteComment(c.id)} className="flex items-center gap-1 font-medium text-neutral-500 hover:text-text-red"><EyeOff size={11} /> Hide</button>}
-                              {canModerate && <button onClick={() => toggleBlock(c.name)} className="flex items-center gap-1 font-medium text-neutral-500 hover:text-text-red"><Ban size={11} /> Block</button>}
+                              {canModerate && <button onClick={() => moderate(c.id, 'hide')} className="flex items-center gap-1 font-medium text-neutral-500 hover:text-text-red"><EyeOff size={11} /> Hide</button>}
+                              {canModerate && <button onClick={() => { if (confirm('Delete this comment from the platform?')) moderate(c.id, 'delete'); }} className="flex items-center gap-1 font-medium text-neutral-500 hover:text-text-red"><Trash2 size={11} /> Delete</button>}
                             </div>
 
                             {/* replies */}
