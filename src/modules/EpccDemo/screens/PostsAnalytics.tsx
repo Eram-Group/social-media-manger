@@ -28,7 +28,8 @@ export default function PostsAnalytics() {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
-  const { posts, addPost, updatePost, deletePost, refresh } = usePosts();
+  const { posts, loading, addPost, updatePost, deletePost, refresh } = usePosts();
+  const [deleting, setDeleting] = useState(false);
   const [view, setView] = useState<TView>(params.get('create') ? { mode: 'create' } : { mode: 'list' });
   const [viewMode, setViewMode] = useState<TViewMode>('table');
   const [open, setOpen] = useState<IPost | null>(null);
@@ -226,13 +227,26 @@ export default function PostsAnalytics() {
         )}
       </AnimatePresence>
 
-      {filtered.length === 0 && (
+      {loading && posts.length === 0 ? (
+        <div className="flex flex-col gap-3">
+          {[0, 1, 2, 3].map((i) => (
+            <DemoCard key={i} className="flex items-center gap-3 p-4">
+              <div className="h-12 w-12 shrink-0 animate-pulse rounded-lg bg-neutral-200" />
+              <div className="flex-1 space-y-2">
+                <div className="h-3 w-2/3 animate-pulse rounded bg-neutral-200" />
+                <div className="h-3 w-1/3 animate-pulse rounded bg-neutral-100" />
+              </div>
+            </DemoCard>
+          ))}
+          <p className="text-center text-sm text-neutral-500">Loading your posts…</p>
+        </div>
+      ) : filtered.length === 0 ? (
         posts.length === 0 ? (
           <DemoCard className="flex flex-col items-center gap-4 py-16 text-center">
             <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary-100 text-primary-800"><Inbox size={26} /></span>
             <div>
               <p className="font-Sora text-lg font-semibold text-text-dark">No posts yet</p>
-              <p className="text-sm text-neutral-500">Create your first post, or load sample Chamber content to explore the demo.</p>
+              <p className="text-sm text-neutral-500">Create your first post, or refresh to pull posts from your connected accounts.</p>
             </div>
             <div className="flex gap-3">
               <div className="w-40"><Button variant="primary" size="medium" leftIcon={<Plus size={16} />} onClick={() => setView({ mode: 'create' })}>New post</Button></div>
@@ -242,7 +256,7 @@ export default function PostsAnalytics() {
         ) : (
           <DemoCard className="py-10 text-center text-sm text-neutral-500">No posts match these filters.</DemoCard>
         )
-      )}
+      ) : null}
 
       {/* LIST view */}
       {viewMode === 'list' && filtered.length > 0 && (
@@ -338,7 +352,7 @@ export default function PostsAnalytics() {
               <p className="mt-4 rounded-lg bg-neutral-100 p-3 text-sm text-neutral-700">{confirm.content}</p>
               <div className="mt-5 flex justify-end gap-3">
                 <div className="w-28"><Button variant="outline" size="medium" onClick={() => setConfirm(null)}>Cancel</Button></div>
-                <div className="w-36"><Button variant="destructive" size="medium" onClick={async () => { const p = confirm; setConfirm(null); const r = await deletePost(p.id); flash(r.ok ? 'Post deleted ✓' : r.errors[0] || 'Delete failed'); }}>Delete</Button></div>
+                <div className="w-36"><Button variant="destructive" size="medium" loading={deleting} disable={deleting} onClick={async () => { const p = confirm; setDeleting(true); const r = await deletePost(p.id); setDeleting(false); setConfirm(null); flash(r.ok ? 'Post deleted ✓' : r.errors[0] || 'Delete failed'); }}>Delete</Button></div>
               </div>
             </ModalPanel>
           </Backdrop>

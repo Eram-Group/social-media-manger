@@ -60,7 +60,25 @@ export async function GET() {
     }
   }
 
-  // Newest first.
-  posts.sort((a, b) => `${b.date} ${b.time}`.localeCompare(`${a.date} ${a.time}`));
-  return NextResponse.json({ posts });
+  // Group cross-posted content: the same caption published the same day to
+  // multiple platforms becomes ONE row with all its platforms + remoteRefs,
+  // so the Platforms column is consistent (always shows every platform a post
+  // went to) instead of splitting into one row per platform.
+  const groups = new Map<string, IPost>();
+  for (const p of posts) {
+    const key = `${p.date}|${(p.content || '').trim().slice(0, 120)}`;
+    const existing = groups.get(key);
+    if (existing) {
+      for (const pl of p.platforms) if (!existing.platforms.includes(pl)) existing.platforms.push(pl);
+      existing.remoteRefs = [...(existing.remoteRefs ?? []), ...(p.remoteRefs ?? [])];
+      existing.likes = (existing.likes ?? 0) + (p.likes ?? 0);
+      existing.comments = (existing.comments ?? 0) + (p.comments ?? 0);
+      existing.shares = (existing.shares ?? 0) + (p.shares ?? 0);
+      if (!existing.media?.length && p.media?.length) existing.media = p.media;
+    } else {
+      groups.set(key, { ...p, platforms: [...p.platforms] });
+    }
+  }
+  const merged = [...groups.values()].sort((a, b) => `${b.date} ${b.time}`.localeCompare(`${a.date} ${a.time}`));
+  return NextResponse.json({ posts: merged });
 }
