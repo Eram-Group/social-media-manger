@@ -67,18 +67,23 @@ export async function GET(req: NextRequest) {
         likes: node?.like_count ?? 0,
         comments: node?.comments_count ?? 0,
       };
+      // Working IG media metrics (per the URViral reference, v22.0): saved, views,
+      // shares, likes, comments. (reach/impressions were deprecated for media.)
       try {
         const ins = await graphGet<{ data: { name: string; values: { value: number }[] }[] }>(`${remoteId}/insights`, {
           access_token: token,
-          metric: 'reach,impressions',
+          metric: 'saved,views,shares,likes,comments',
         });
         for (const m of ins.data ?? []) {
           const v = m.values?.[0]?.value ?? 0;
-          if (m.name === 'reach') metrics.reach = v;
-          if (m.name === 'impressions') metrics.impressions = v;
+          if (m.name === 'saved') metrics.saved = v;
+          if (m.name === 'views') metrics.views = v;
+          if (m.name === 'shares') metrics.shares = v;
+          if (m.name === 'likes' && !metrics.likes) metrics.likes = v;
+          if (m.name === 'comments' && !metrics.comments) metrics.comments = v;
         }
       } catch {
-        /* ignore */
+        /* insights need instagram_manage_insights — reconnect to grant it */
       }
       return NextResponse.json({
         ok: true,
