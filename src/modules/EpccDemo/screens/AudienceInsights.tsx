@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, PieChart, Pie, Cell } from 'recharts';
 import { Users, RefreshCw, AlertCircle } from 'lucide-react';
 import { DemoCard, SectionTitle, StatCard, PlatformChip, formatFollowers } from '../_components/ui';
+import { useApi } from '../_services/useApi';
 
 interface Dim { label: string; value: number }
 interface IgView { accountId: string; name?: string; followers?: number | null; age: Dim[]; gender: Dim[]; countries: Dim[]; stats?: Record<string, number>; hasData?: boolean; error?: string }
@@ -12,27 +13,16 @@ interface FbView { accountId: string; name?: string; followers?: number | null; 
 const GENDER_COLORS = ['#025FCC', '#DB2777', '#9CA3AF'];
 
 export default function AudienceInsights() {
-  const [data, setData] = useState<{ available: boolean; instagram: IgView[]; facebook: FbView[] }>({ available: false, instagram: [], facebook: [] });
-  const [loading, setLoading] = useState(true);
+  const { data: raw, loading, refresh } = useApi<{ available: boolean; instagram: IgView[]; facebook: FbView[] }>('/api/audience');
+  const data = raw ?? { available: false, instagram: [], facebook: [] };
   const [platform, setPlatform] = useState<'instagram' | 'facebook'>('instagram');
   const [idx, setIdx] = useState(0);
-
-  const load = () => {
-    setLoading(true);
-    fetch('/api/audience', { cache: 'no-store' })
-      .then((r) => r.json())
-      .then((d) => {
-        setData(d);
-        // default to whichever platform has accounts
-        if ((d.instagram ?? []).length === 0 && (d.facebook ?? []).length > 0) setPlatform('facebook');
-      })
-      .catch(() => setData({ available: false, instagram: [], facebook: [] }))
-      .finally(() => setLoading(false));
-  };
-  useEffect(() => { load(); }, []);
+  const load = () => refresh();
 
   const igList = data.instagram ?? [];
   const fbList = data.facebook ?? [];
+  // Default to whichever platform has accounts.
+  useEffect(() => { if (igList.length === 0 && fbList.length > 0) setPlatform('facebook'); }, [igList.length, fbList.length]);
   const list = platform === 'instagram' ? igList : fbList;
   const view = list[idx] ?? list[0];
   const ig = platform === 'instagram' ? (view as IgView) : null;

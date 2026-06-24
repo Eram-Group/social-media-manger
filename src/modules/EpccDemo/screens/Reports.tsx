@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Cell, PieChart, Pie } from 'recharts';
 import { Printer, RefreshCw, Sparkles, TrendingUp, AlertCircle } from 'lucide-react';
 import { DemoCard, SectionTitle, StatCard, PlatformChip, formatFollowers } from '../_components/ui';
+import { useApi } from '../_services/useApi';
 import { getPlatform, platformChartColor, TPlatformId } from '@/mock-server/platforms';
 
 interface Report {
@@ -23,18 +24,9 @@ const SENT_COLOR: Record<string, string> = { positive: 'text-warnings-success', 
 
 export default function Reports() {
   const [period, setPeriod] = useState<'weekly' | 'monthly'>('monthly');
-  const [data, setData] = useState<Report | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  const load = (p: 'weekly' | 'monthly') => {
-    setLoading(true);
-    fetch(`/api/report?period=${p}`, { cache: 'no-store' })
-      .then((r) => r.json())
-      .then((d) => setData(d.ok ? d : null))
-      .catch(() => setData(null))
-      .finally(() => setLoading(false));
-  };
-  useEffect(() => { load(period); }, [period]);
+  const { data: raw, loading, refresh } = useApi<Report>(`/api/report?period=${period}`);
+  const data = raw && raw.ok ? raw : null;
+  const load = () => refresh();
 
   const s = data?.summary;
   const sent = data?.sentiment;
@@ -52,7 +44,7 @@ export default function Reports() {
               <button key={p} onClick={() => setPeriod(p)} className={`rounded-md px-3 py-1.5 text-sm font-medium capitalize ${period === p ? 'bg-secondary-200 text-primary-900' : 'text-neutral-600 hover:bg-neutral-100'}`}>{p}</button>
             ))}
           </div>
-          <button onClick={() => load(period)} disabled={loading} className="flex h-9 w-9 items-center justify-center rounded-lg border border-neutral-200 text-neutral-700 hover:bg-neutral-100 disabled:opacity-50" title="Refresh"><RefreshCw size={16} className={loading ? 'animate-spin' : ''} /></button>
+          <button onClick={() => load()} disabled={loading} className="flex h-9 w-9 items-center justify-center rounded-lg border border-neutral-200 text-neutral-700 hover:bg-neutral-100 disabled:opacity-50" title="Refresh"><RefreshCw size={16} className={loading ? 'animate-spin' : ''} /></button>
           <button onClick={() => window.print()} className="flex items-center gap-2 rounded-lg bg-primary-800 px-4 py-2 text-sm font-medium text-white hover:bg-primary-900"><Printer size={15} /> Export PDF</button>
         </div>
       </div>

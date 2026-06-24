@@ -6,6 +6,7 @@ import { Send, AtSign, MessageSquare, MessageCircle, Check, Clock, Inbox as Inbo
 import { cn } from '@/shadecn/lib/utils';
 import { DemoCard, SectionTitle, PlatformChip } from '../_components/ui';
 import { DsSelect } from '../_components/form';
+import { useApi } from '../_services/useApi';
 import { TEAM, SAVED_REPLIES, TConvType } from '@/mock-server/inbox';
 import { getPlatform, TPlatformId } from '@/mock-server/platforms';
 
@@ -25,35 +26,32 @@ const when = (iso: string) => (iso ? iso.slice(0, 16).replace('T', ' ').slice(5)
 
 export default function Inbox() {
   const [convos, setConvos] = useState<Convo[]>([]);
-  const [loading, setLoading] = useState(true);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | TConvType>('all');
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
   const [err, setErr] = useState('');
 
-  const load = () => {
-    setLoading(true);
-    fetch('/api/inbox', { cache: 'no-store' })
-      .then((r) => r.json())
-      .then((d) => {
-        const cs: Convo[] = (d.items ?? []).map((it: any) => ({
-          id: it.id, accountId: it.accountId, platform: it.platform,
-          name: it.author, handle: it.platform === 'instagram' ? `@${it.author}` : '',
-          type: 'comment' as TConvType, time: when(it.time), unread: (it.replies?.length ?? 0) === 0,
-          assignee: 'Unassigned', resolved: false, permalink: it.permalink, likeCount: it.likeCount ?? 0,
-          messages: [
-            { from: 'them' as const, text: it.text, time: when(it.time) },
-            ...(it.replies ?? []).map((r: any) => ({ from: r.fromPage ? ('us' as const) : ('them' as const), text: r.text, time: when(r.time) })),
-          ],
-        }));
-        setConvos(cs);
-        setActiveId((cur) => cur ?? cs[0]?.id ?? null);
-      })
-      .catch(() => setConvos([]))
-      .finally(() => setLoading(false));
-  };
-  useEffect(() => { load(); }, []);
+  const { data, loading, refresh } = useApi<{ items: any[] }>('/api/inbox');
+  const load = () => refresh();
+
+  // Seed the local conversation list whenever the API data changes (instant from
+  // the client cache on revisits, so no loading flash).
+  useEffect(() => {
+    if (!data) return;
+    const cs: Convo[] = (data.items ?? []).map((it: any) => ({
+      id: it.id, accountId: it.accountId, platform: it.platform,
+      name: it.author, handle: it.platform === 'instagram' ? `@${it.author}` : '',
+      type: 'comment' as TConvType, time: when(it.time), unread: (it.replies?.length ?? 0) === 0,
+      assignee: 'Unassigned', resolved: false, permalink: it.permalink, likeCount: it.likeCount ?? 0,
+      messages: [
+        { from: 'them' as const, text: it.text, time: when(it.time) },
+        ...(it.replies ?? []).map((r: any) => ({ from: r.fromPage ? ('us' as const) : ('them' as const), text: r.text, time: when(r.time) })),
+      ],
+    }));
+    setConvos(cs);
+    setActiveId((cur) => cur ?? cs[0]?.id ?? null);
+  }, [data]);
 
   const list = useMemo(() => convos.filter((c) => filter === 'all' || c.type === filter), [convos, filter]);
   const active = convos.find((c) => c.id === activeId) ?? null;
