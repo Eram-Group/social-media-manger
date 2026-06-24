@@ -215,15 +215,16 @@ export default function PostDetail() {
           )}
           {/* Reaction breakdown (real, when available) */}
           {!live.error && live.data?.reactions && Object.keys(live.data.reactions).length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {Object.entries(live.data.reactions as Record<string, number>).filter(([, n]) => n > 0).map(([k, n]) => (
-                <span key={k} className="flex items-center gap-1 rounded-full border border-neutral-200 bg-white px-2.5 py-1 text-xs text-neutral-700">
-                  <span className="capitalize">{k}</span> {n.toLocaleString()}
-                </span>
-              ))}
-            </div>
+            <Breakdown title="Reactions" data={live.data.reactions} />
           )}
-          <p className="text-xs text-neutral-500">Facebook no longer exposes reach/impressions via the API; these are the real metrics it still provides.</p>
+          {/* Activity + click-type breakdowns (Facebook) */}
+          {!live.error && live.data?.breakdowns?.activity && Object.keys(live.data.breakdowns.activity).length > 0 && (
+            <Breakdown title="Activity" data={live.data.breakdowns.activity} />
+          )}
+          {!live.error && live.data?.breakdowns?.clicksByType && Object.keys(live.data.breakdowns.clicksByType).length > 0 && (
+            <Breakdown title="Clicks by type" data={live.data.breakdowns.clicksByType} />
+          )}
+          <p className="text-xs text-neutral-500">Facebook no longer exposes per-post reach/impressions via the API; these are all the real metrics it still provides.</p>
         </DemoCard>
       )}
 
@@ -411,3 +412,20 @@ const LiveStat = ({ label, value }: { label: string; value: string }) => (
     <p className="text-xs text-neutral-500">{label}</p>
   </div>
 );
+
+const Breakdown = ({ title, data }: { title: string; data: Record<string, number> }) => {
+  const items = Object.entries(data).filter(([, n]) => Number(n) > 0);
+  if (!items.length) return null;
+  return (
+    <div>
+      <p className="mb-1.5 text-xs font-medium uppercase text-neutral-500">{title}</p>
+      <div className="flex flex-wrap gap-2">
+        {items.map(([k, n]) => (
+          <span key={k} className="flex items-center gap-1 rounded-full border border-neutral-200 bg-white px-2.5 py-1 text-xs text-neutral-700">
+            <span className="capitalize">{k.replace(/_/g, ' ')}</span> <span className="font-semibold">{Number(n).toLocaleString()}</span>
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+};

@@ -37,19 +37,22 @@ export async function GET(req: NextRequest) {
         shares: node?.shares?.count ?? 0,
       };
       const reactions: Record<string, number> = {};
-      // Pull every post insight metric Meta still exposes (impressions/reach removed).
+      const breakdowns: Record<string, Record<string, number>> = {};
+      // Every post insight Meta still exposes (reach/impressions were removed).
       try {
         const ins = await graphGet<{ data: { name: string; values: { value: any }[] }[] }>(`${remoteId}/insights`, {
           access_token: token,
-          metric: 'post_reactions_by_type_total,post_clicks,post_video_views,post_activity_by_action_type',
+          metric: 'post_reactions_by_type_total,post_clicks,post_clicks_by_type,post_video_views,post_video_views_organic,post_video_avg_time_watched,post_activity_by_action_type',
         });
         for (const m of ins.data ?? []) {
           const v = m.values?.[0]?.value;
           if (m.name === 'post_clicks') metrics.clicks = Number(v) || 0;
           if (m.name === 'post_video_views') metrics.videoViews = Number(v) || 0;
-          if (m.name === 'post_reactions_by_type_total' && v && typeof v === 'object') {
-            Object.assign(reactions, v); // { like, love, wow, haha, ... }
-          }
+          if (m.name === 'post_video_views_organic') metrics.videoViewsOrganic = Number(v) || 0;
+          if (m.name === 'post_video_avg_time_watched') metrics.avgWatchMs = Number(v) || 0;
+          if (m.name === 'post_reactions_by_type_total' && v && typeof v === 'object') Object.assign(reactions, v);
+          if (m.name === 'post_clicks_by_type' && v && typeof v === 'object') breakdowns.clicksByType = v;
+          if (m.name === 'post_activity_by_action_type' && v && typeof v === 'object') breakdowns.activity = v;
         }
       } catch {
         /* insights unavailable — keep engagement counts only */
@@ -59,6 +62,7 @@ export async function GET(req: NextRequest) {
         platform,
         metrics,
         reactions,
+        breakdowns,
         permalink: node?.permalink_url,
         message: node?.message,
         createdTime: node?.created_time,
