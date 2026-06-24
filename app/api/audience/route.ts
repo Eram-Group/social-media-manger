@@ -1,20 +1,22 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { listAccounts } from '@/server/store';
 import { graphGet } from '@/server/connectors/meta';
+import { getCached } from '@/server/cache';
 
-// GET /api/audience
-//  - Instagram: real follower demographics (age / gender / country) via
-//    follower_demographics (total_value, lifetime) — the URViral pattern.
-//  - Facebook: Page audience stats (followers, new follows, page views,
-//    engagement). NOTE: Facebook Page demographics (age/gender/country) were
-//    removed from the Graph API, so only these aggregate stats are available.
-export async function GET() {
+// GET /api/audience — cached 1h (pass ?refresh=1 to force).
+export async function GET(req: NextRequest) {
+  const force = new URL(req.url).searchParams.get('refresh') === '1';
+  const cached = await getCached('audience', 60 * 60, computeAudience, force);
+  return NextResponse.json({ ...cached.data, cachedAt: cached.cachedAt, fromCache: cached.fromCache });
+}
+
+async function computeAudience() {
   const accounts = await listAccounts();
   const ig = accounts.filter((a) => a.platform === 'instagram');
   const fb = accounts.filter((a) => a.platform === 'facebook');
 
   if (!ig.length && !fb.length) {
-    return NextResponse.json({ ok: true, available: false, reason: 'none', instagram: [], facebook: [] });
+    return { ok: true, available: false, reason: 'none', instagram: [], facebook: [] };
   }
 
   // ---- Instagram demographics ----
@@ -104,5 +106,5 @@ export async function GET() {
     facebook.push(view);
   }
 
-  return NextResponse.json({ ok: true, available: true, instagram, facebook });
+  return { ok: true, available: true, instagram, facebook };
 }

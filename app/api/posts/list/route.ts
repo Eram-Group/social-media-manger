@@ -1,11 +1,26 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { listAccounts, listHidden } from '@/server/store';
 import { graphGet } from '@/server/connectors/meta';
+import { getCached } from '@/server/cache';
 import { IPost } from '@/mock-server/posts';
 
-// GET /api/posts/list — the real posts published on the connected Pages /
-// Instagram accounts, mapped into the app's IPost shape with live counts.
-export async function GET() {
+// GET /api/posts/list — real posts from connected Pages / Instagram accounts.
+// Cached (15 min) so navigating to the page doesn't re-hit Meta every time;
+// pass ?refresh=1 to force a live pull.
+export async function GET(req: NextRequest) {
+  const force = new URL(req.url).searchParams.get('refresh') === '1';
+  const cached = await getCached('posts:list', 15 * 60, fetchPosts, force);
+  // Apply the hidden filter on every request (not cached) so removing a post
+  // from the dashboard takes effect immediately without a fresh Meta call.
+  const hidden = await listHidden();
+  const posts = (cached.data as IPost[]).filter((p) => {
+    const refs = p.remoteRefs ?? [];
+    return !refs.length || !refs.every((r) => hidden.has(r.remoteId));
+  });
+  return NextResponse.json({ posts, cachedAt: cached.cachedAt, fromCache: cached.fromCache, stale: cached.stale });
+}
+
+async function fetchPosts(): Promise<IPost[]> {
   const accounts = await listAccounts();
   const posts: IPost[] = [];
 
@@ -140,13 +155,6 @@ export async function GET() {
       groups.set(key, { ...p, platforms: [...p.platforms] });
     }
   }
-  // Drop posts the user removed from the dashboard (e.g. Instagram, which can't
-  // be deleted via API). A grouped row is hidden only if ALL its refs are hidden.
-  const hidden = await listHidden();
-  const visible = [...groups.values()].filter((p) => {
-    const refs = p.remoteRefs ?? [];
-    return !refs.length || !refs.every((r) => hidden.has(r.remoteId));
-  });
-  const merged = visible.sort((a, b) => `${b.date} ${b.time}`.localeCompare(`${a.date} ${a.time}`));
-  return NextResponse.json({ posts: merged });
+  const merged = [...groups.values()].sort((a, b) => `${b.date} ${b.time}`.localeCompare(`${a.date} ${a.time}`));
+  return merged;
 }

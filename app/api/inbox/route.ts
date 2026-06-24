@@ -1,6 +1,7 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { listAccounts } from '@/server/store';
 import { graphGet } from '@/server/connectors/meta';
+import { getCached } from '@/server/cache';
 
 export interface InboxReply {
   id: string;
@@ -27,7 +28,13 @@ export interface InboxItem {
 // GET /api/inbox — real comments on the connected Pages' recent posts.
 // (Replying requires the pages_manage_engagement permission, which isn't granted
 // yet — so this is read-only for now, with a link to reply on the platform.)
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const force = new URL(req.url).searchParams.get('refresh') === '1';
+  const cached = await getCached('inbox', 10 * 60, fetchInbox, force);
+  return NextResponse.json({ items: cached.data, cachedAt: cached.cachedAt, fromCache: cached.fromCache });
+}
+
+async function fetchInbox(): Promise<InboxItem[]> {
   const accounts = await listAccounts();
   const items: InboxItem[] = [];
 
@@ -108,5 +115,5 @@ export async function GET() {
   }
 
   items.sort((a, b) => b.time.localeCompare(a.time));
-  return NextResponse.json({ items });
+  return items;
 }

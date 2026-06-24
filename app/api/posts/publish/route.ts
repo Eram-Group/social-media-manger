@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getConnector, isSupported } from '@/server/connectors/registry';
 import { ConnectedAccount, PublishInput } from '@/server/connectors/types';
 import { findAccount } from '@/server/store';
+import { invalidate } from '@/server/cache';
 
 // POST /api/posts/publish
 // Accepts either:
@@ -65,6 +66,8 @@ export async function POST(req: NextRequest) {
   const account: ConnectedAccount = { platform: platform as ConnectedAccount['platform'], accountId, accessToken: token, meta: stored?.meta };
   try {
     const result = await getConnector(platform).publish(account, input);
+    // New post — drop the cached list so it shows on next load.
+    await invalidate('posts:list');
     return NextResponse.json({ ok: true, platform, result });
   } catch (e) {
     return NextResponse.json({ error: (e as Error).message }, { status: 500 });

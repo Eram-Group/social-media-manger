@@ -1,6 +1,7 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { listAccounts } from '@/server/store';
 import { graphGet } from '@/server/connectors/meta';
+import { getCached } from '@/server/cache';
 
 // GET /api/metrics — derived audience/performance metrics per connected account,
 // modeled on the URViral metric set: followers, engagement rate, avg views/likes/
@@ -86,7 +87,13 @@ async function instagramMetrics(acc: any) {
   return m;
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const force = new URL(req.url).searchParams.get('refresh') === '1';
+  const cached = await getCached('metrics', 30 * 60, computeMetrics, force);
+  return NextResponse.json({ ok: true, ...cached.data, cachedAt: cached.cachedAt, fromCache: cached.fromCache });
+}
+
+async function computeMetrics() {
   const accounts = await listAccounts();
   const facebook = [];
   const instagram = [];
@@ -102,5 +109,5 @@ export async function GET() {
     total_avg_likes: all.reduce((s, m) => s + (m.avg_likes ?? 0), 0),
     total_avg_comments: all.reduce((s, m) => s + (m.avg_comments ?? 0), 0),
   };
-  return NextResponse.json({ ok: true, general, facebook, instagram });
+  return { general, facebook, instagram };
 }

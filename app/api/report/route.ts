@@ -2,13 +2,20 @@ import { NextRequest, NextResponse } from 'next/server';
 import { listAccounts } from '@/server/store';
 import { graphGet } from '@/server/connectors/meta';
 import { analyzeSentiment, executiveSummary } from '@/server/ai';
+import { getCached } from '@/server/cache';
 
-// GET /api/report?period=monthly|weekly
-// The full client report: every real data point we can pull from Meta for the
-// connected Facebook + Instagram accounts, plus AI sentiment over real comments
-// and an AI executive summary.
+// GET /api/report?period=monthly|weekly — cached 30 min (?refresh=1 to force).
+// The full client report is expensive (many Meta calls + AI), so caching is key
+// to staying under the free API limits.
 export async function GET(req: NextRequest) {
-  const period = new URL(req.url).searchParams.get('period') === 'weekly' ? 'weekly' : 'monthly';
+  const url = new URL(req.url);
+  const period = url.searchParams.get('period') === 'weekly' ? 'weekly' : 'monthly';
+  const force = url.searchParams.get('refresh') === '1';
+  const cached = await getCached(`report:${period}`, 30 * 60, () => buildReport(period), force);
+  return NextResponse.json({ ...cached.data, cachedAt: cached.cachedAt, fromCache: cached.fromCache });
+}
+
+async function buildReport(period: 'weekly' | 'monthly') {
   const days = period === 'weekly' ? 7 : 28;
   const accounts = await listAccounts();
 
@@ -117,7 +124,7 @@ export async function GET(req: NextRequest) {
     sentiment: { positive: sentiment.positive, neutral: sentiment.neutral, negative: sentiment.negative },
   });
 
-  return NextResponse.json({
+  return {
     ok: true,
     period,
     rangeDays: days,
@@ -127,5 +134,5 @@ export async function GET(req: NextRequest) {
     topPosts: topPosts.slice(0, 8),
     sentiment,
     executiveSummary: summary,
-  });
+  };
 }
