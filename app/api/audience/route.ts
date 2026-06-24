@@ -46,28 +46,40 @@ export async function GET() {
     instagram.push(view);
   }
 
-  // ---- Facebook page stats ----
+  // ---- Facebook page stats (all metrics the Graph API still exposes) ----
   const facebook = [];
   for (const acc of fb) {
-    const view: any = { accountId: acc.accountId, name: acc.name, followers: acc.followers ?? null, stats: {} };
+    const view: any = { accountId: acc.accountId, name: acc.name, followers: acc.followers ?? null, category: null, link: null, stats: {}, reactions: {} };
     try {
-      const info = await graphGet<{ followers_count?: number; fan_count?: number }>(acc.accountId, {
-        access_token: acc.accessToken, fields: 'followers_count,fan_count',
+      const info = await graphGet<any>(acc.accountId, {
+        access_token: acc.accessToken, fields: 'followers_count,fan_count,category,link',
       });
       view.followers = info.followers_count ?? info.fan_count ?? view.followers;
+      view.category = info.category ?? null;
+      view.link = info.link ?? null;
 
-      const ins = await graphGet<{ data: { name: string; values: { value: number }[] }[] }>(`${acc.accountId}/insights`, {
+      const ins = await graphGet<{ data: { name: string; values: { value: any }[] }[] }>(`${acc.accountId}/insights`, {
         access_token: acc.accessToken,
-        metric: 'page_follows,page_daily_follows_unique,page_post_engagements,page_views_total',
+        metric: 'page_follows,page_daily_follows_unique,page_post_engagements,page_views_total,page_video_views,page_total_actions,page_actions_post_reactions_total',
         period: 'days_28',
       });
-      const sum = (vals: { value: number }[]) => vals.reduce((s, v) => s + (Number(v.value) || 0), 0);
-      const last = (vals: { value: number }[]) => Number(vals[vals.length - 1]?.value) || 0;
+      const nums = (vals: { value: any }[]) => vals.map((v) => Number(v.value) || 0);
+      const sum = (vals: { value: any }[]) => nums(vals).reduce((s, n) => s + n, 0);
+      const last = (vals: { value: any }[]) => Number(vals[vals.length - 1]?.value) || 0;
       for (const m of ins.data ?? []) {
         if (m.name === 'page_follows') view.stats.totalFollows = last(m.values);
         if (m.name === 'page_daily_follows_unique') view.stats.newFollows28d = sum(m.values);
         if (m.name === 'page_post_engagements') view.stats.engagements28d = sum(m.values);
         if (m.name === 'page_views_total') view.stats.pageViews28d = sum(m.values);
+        if (m.name === 'page_video_views') view.stats.videoViews28d = sum(m.values);
+        if (m.name === 'page_total_actions') view.stats.totalActions28d = sum(m.values);
+        if (m.name === 'page_actions_post_reactions_total') {
+          // value is an object { like, love, wow, ... } per day — sum across days.
+          for (const day of m.values ?? []) {
+            const obj = day.value;
+            if (obj && typeof obj === 'object') for (const [k, n] of Object.entries(obj)) view.reactions[k] = (view.reactions[k] ?? 0) + (Number(n) || 0);
+          }
+        }
       }
       view.hasData = true;
     } catch (e) {

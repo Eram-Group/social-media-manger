@@ -7,7 +7,7 @@ import { DemoCard, SectionTitle, StatCard, PlatformChip, formatFollowers } from 
 
 interface Dim { label: string; value: number }
 interface IgView { accountId: string; name?: string; followers?: number | null; age: Dim[]; gender: Dim[]; countries: Dim[]; hasData?: boolean; error?: string }
-interface FbView { accountId: string; name?: string; followers?: number | null; stats: { totalFollows?: number; newFollows28d?: number; engagements28d?: number; pageViews28d?: number }; hasData?: boolean; error?: string }
+interface FbView { accountId: string; name?: string; followers?: number | null; category?: string | null; link?: string | null; stats: { totalFollows?: number; newFollows28d?: number; engagements28d?: number; pageViews28d?: number; videoViews28d?: number; totalActions28d?: number }; reactions?: Record<string, number>; hasData?: boolean; error?: string }
 
 const GENDER_COLORS = ['#025FCC', '#DB2777', '#9CA3AF'];
 
@@ -162,10 +162,27 @@ export default function AudienceInsights() {
                 <StatCard label="New follows · 28d" value={formatFollowers(fb.stats.newFollows28d ?? 0)} />
                 <StatCard label="Page views · 28d" value={formatFollowers(fb.stats.pageViews28d ?? 0)} />
                 <StatCard label="Engagements · 28d" value={formatFollowers(fb.stats.engagements28d ?? 0)} />
+                <StatCard label="Video views · 28d" value={formatFollowers(fb.stats.videoViews28d ?? 0)} />
+                <StatCard label="Total actions · 28d" value={formatFollowers(fb.stats.totalActions28d ?? 0)} />
+                {fb.category && <StatCard label="Category" value={fb.category} />}
               </div>
+
+              {fb.reactions && Object.keys(fb.reactions).length > 0 && (
+                <DemoCard>
+                  <SectionTitle title="Reactions · last 28 days" subtitle="By type, across the Page" />
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {Object.entries(fb.reactions).filter(([, n]) => n > 0).map(([k, n]) => (
+                      <span key={k} className="flex items-center gap-1.5 rounded-full border border-neutral-200 bg-white px-3 py-1.5 text-sm text-neutral-700">
+                        <span className="capitalize">{k}</span> <span className="font-semibold">{formatFollowers(n)}</span>
+                      </span>
+                    ))}
+                  </div>
+                </DemoCard>
+              )}
+
               <DemoCard className="flex items-start gap-3 py-5 text-sm text-neutral-600">
                 <AlertCircle size={18} className="mt-0.5 shrink-0 text-neutral-400" />
-                <p>Facebook no longer exposes Page audience demographics (age, gender, country) through its API — only the aggregate stats above are available. For demographic breakdowns, use the Instagram tab.</p>
+                <p>These are all the Page metrics the Facebook Graph API still exposes. Audience demographics (age, gender, country) were removed by Meta for Facebook Pages — use the Instagram tab for demographic breakdowns.{fb.link ? <> · <a href={fb.link} target="_blank" rel="noreferrer" className="font-medium text-primary-800 hover:underline">Open Page</a></> : null}</p>
               </DemoCard>
             </>
           ) : null}
