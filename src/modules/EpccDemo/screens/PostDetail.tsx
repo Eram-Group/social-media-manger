@@ -207,10 +207,13 @@ export default function PostDetail() {
               <LiveStat label="Likes" value={live.loading ? '…' : (live.data?.metrics?.likes ?? 0).toLocaleString()} />
               <LiveStat label="Comments" value={live.loading ? '…' : (live.data?.metrics?.comments ?? 0).toLocaleString()} />
               <LiveStat label="Shares" value={live.loading ? '…' : (live.data?.metrics?.shares ?? 0).toLocaleString()} />
+              {live.data?.metrics?.fanReach != null && <LiveStat label="Fan reach" value={(live.data.metrics.fanReach).toLocaleString()} />}
               {live.data?.metrics?.saved != null && <LiveStat label="Saves" value={(live.data.metrics.saved).toLocaleString()} />}
               {live.data?.metrics?.views != null && <LiveStat label="Views" value={(live.data.metrics.views).toLocaleString()} />}
-              {live.data?.metrics?.clicks != null && <LiveStat label="Link clicks" value={(live.data.metrics.clicks).toLocaleString()} />}
+              {live.data?.metrics?.clicks != null && <LiveStat label="Clicks" value={(live.data.metrics.clicks).toLocaleString()} />}
+              {live.data?.metrics?.contentClicks != null && <LiveStat label="Content clicks" value={(live.data.metrics.contentClicks).toLocaleString()} />}
               {live.data?.metrics?.videoViews != null && <LiveStat label="Video views" value={(live.data.metrics.videoViews).toLocaleString()} />}
+              {live.data?.metrics?.videoViewers != null && <LiveStat label="Video viewers" value={(live.data.metrics.videoViewers).toLocaleString()} />}
             </div>
           )}
           {/* Reaction breakdown (real, when available) */}
@@ -223,6 +226,9 @@ export default function PostDetail() {
           )}
           {!live.error && live.data?.breakdowns?.clicksByType && Object.keys(live.data.breakdowns.clicksByType).length > 0 && (
             <Breakdown title="Clicks by type" data={live.data.breakdowns.clicksByType} />
+          )}
+          {!live.error && live.data?.breakdowns?.consumptionsByType && Object.keys(live.data.breakdowns.consumptionsByType).length > 0 && (
+            <Breakdown title="Content clicks by type" data={live.data.breakdowns.consumptionsByType} />
           )}
           <p className="text-xs text-neutral-500">Facebook no longer exposes per-post reach/impressions via the API; these are all the real metrics it still provides.</p>
         </DemoCard>

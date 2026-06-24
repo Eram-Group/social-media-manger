@@ -42,16 +42,21 @@ export async function GET(req: NextRequest) {
       try {
         const ins = await graphGet<{ data: { name: string; values: { value: any }[] }[] }>(`${remoteId}/insights`, {
           access_token: token,
-          metric: 'post_reactions_by_type_total,post_clicks,post_clicks_by_type,post_video_views,post_video_views_organic,post_video_avg_time_watched,post_activity_by_action_type',
+          metric: 'post_reactions_by_type_total,post_clicks,post_clicks_by_type,post_consumptions,post_consumptions_by_type,post_fan_reach,post_video_views,post_video_views_organic,post_video_views_unique,total_video_views,post_video_avg_time_watched,post_activity_by_action_type',
         });
         for (const m of ins.data ?? []) {
           const v = m.values?.[0]?.value;
           if (m.name === 'post_clicks') metrics.clicks = Number(v) || 0;
+          if (m.name === 'post_consumptions') metrics.contentClicks = Number(v) || 0;
+          if (m.name === 'post_fan_reach') metrics.fanReach = Number(v) || 0;
           if (m.name === 'post_video_views') metrics.videoViews = Number(v) || 0;
           if (m.name === 'post_video_views_organic') metrics.videoViewsOrganic = Number(v) || 0;
+          if (m.name === 'post_video_views_unique') metrics.videoViewers = Number(v) || 0;
+          if (m.name === 'total_video_views') metrics.totalVideoViews = Number(v) || 0;
           if (m.name === 'post_video_avg_time_watched') metrics.avgWatchMs = Number(v) || 0;
           if (m.name === 'post_reactions_by_type_total' && v && typeof v === 'object') Object.assign(reactions, v);
           if (m.name === 'post_clicks_by_type' && v && typeof v === 'object') breakdowns.clicksByType = v;
+          if (m.name === 'post_consumptions_by_type' && v && typeof v === 'object') breakdowns.consumptionsByType = v;
           if (m.name === 'post_activity_by_action_type' && v && typeof v === 'object') breakdowns.activity = v;
         }
       } catch {
