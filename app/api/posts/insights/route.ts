@@ -38,11 +38,32 @@ export async function GET(req: NextRequest) {
       };
       const reactions: Record<string, number> = {};
       const breakdowns: Record<string, Record<string, number>> = {};
-      // Every post insight Meta still exposes (reach/impressions were removed).
+      // Per-type reaction totals (reliable lifetime numbers) — summed server-side.
+      const REACTION_METRIC: Record<string, string> = {
+        post_reactions_like_total: 'like', post_reactions_love_total: 'love',
+        post_reactions_wow_total: 'wow', post_reactions_haha_total: 'haha',
+        post_reactions_sorry_total: 'sad', post_reactions_anger_total: 'angry',
+      };
+      try {
+        const rx = await graphGet<{ data: { name: string; period: string; values: { value: any }[] }[] }>(`${remoteId}/insights`, {
+          access_token: token,
+          metric: Object.keys(REACTION_METRIC).join(','),
+          period: 'lifetime',
+        });
+        for (const m of rx.data ?? []) {
+          const label = REACTION_METRIC[m.name];
+          if (label) reactions[label] = Number(m.values?.[0]?.value) || 0;
+        }
+        // Aggregate: total reactions = sum of all types.
+        metrics.totalReactions = Object.values(reactions).reduce((s, n) => s + n, 0);
+      } catch {
+        /* reactions unavailable */
+      }
+      // Other post insights Meta still exposes (reach/impressions were removed).
       try {
         const ins = await graphGet<{ data: { name: string; values: { value: any }[] }[] }>(`${remoteId}/insights`, {
           access_token: token,
-          metric: 'post_reactions_by_type_total,post_clicks,post_clicks_by_type,post_consumptions,post_consumptions_by_type,post_fan_reach,post_video_views,post_video_views_organic,post_video_views_unique,total_video_views,post_video_avg_time_watched,post_activity_by_action_type',
+          metric: 'post_clicks,post_clicks_by_type,post_consumptions,post_consumptions_by_type,post_fan_reach,post_video_views,post_video_views_organic,post_video_views_unique,total_video_views,post_video_avg_time_watched,post_activity_by_action_type',
         });
         for (const m of ins.data ?? []) {
           const v = m.values?.[0]?.value;
@@ -54,7 +75,6 @@ export async function GET(req: NextRequest) {
           if (m.name === 'post_video_views_unique') metrics.videoViewers = Number(v) || 0;
           if (m.name === 'total_video_views') metrics.totalVideoViews = Number(v) || 0;
           if (m.name === 'post_video_avg_time_watched') metrics.avgWatchMs = Number(v) || 0;
-          if (m.name === 'post_reactions_by_type_total' && v && typeof v === 'object') Object.assign(reactions, v);
           if (m.name === 'post_clicks_by_type' && v && typeof v === 'object') breakdowns.clicksByType = v;
           if (m.name === 'post_consumptions_by_type' && v && typeof v === 'object') breakdowns.consumptionsByType = v;
           if (m.name === 'post_activity_by_action_type' && v && typeof v === 'object') breakdowns.activity = v;

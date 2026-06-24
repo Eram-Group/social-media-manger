@@ -207,6 +207,7 @@ export default function PostDetail() {
               <LiveStat label="Likes" value={live.loading ? '…' : (live.data?.metrics?.likes ?? 0).toLocaleString()} />
               <LiveStat label="Comments" value={live.loading ? '…' : (live.data?.metrics?.comments ?? 0).toLocaleString()} />
               <LiveStat label="Shares" value={live.loading ? '…' : (live.data?.metrics?.shares ?? 0).toLocaleString()} />
+              {live.data?.metrics?.totalReactions != null && <LiveStat label="Total reactions" value={(live.data.metrics.totalReactions).toLocaleString()} />}
               {live.data?.metrics?.fanReach != null && <LiveStat label="Fan reach" value={(live.data.metrics.fanReach).toLocaleString()} />}
               {live.data?.metrics?.saved != null && <LiveStat label="Saves" value={(live.data.metrics.saved).toLocaleString()} />}
               {live.data?.metrics?.views != null && <LiveStat label="Views" value={(live.data.metrics.views).toLocaleString()} />}
