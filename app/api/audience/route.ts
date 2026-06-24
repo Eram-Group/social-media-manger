@@ -20,7 +20,23 @@ export async function GET() {
   // ---- Instagram demographics ----
   const instagram = [];
   for (const acc of ig) {
-    const view: any = { accountId: acc.accountId, name: acc.name, followers: acc.followers ?? null, age: [], gender: [], countries: [] };
+    const view: any = { accountId: acc.accountId, name: acc.name, followers: acc.followers ?? null, age: [], gender: [], countries: [], stats: {} };
+    // Account-level performance (last 28 days) — everything IG exposes.
+    try {
+      const until = Math.floor(Date.now() / 1000);
+      const since = until - 28 * 24 * 60 * 60;
+      const ins = await graphGet<{ data: { name: string; total_value?: { value: number } }[] }>(`${acc.accountId}/insights`, {
+        access_token: acc.accessToken,
+        metric: 'reach,views,accounts_engaged,total_interactions,likes,comments,shares,saves,profile_views,website_clicks,profile_links_taps',
+        period: 'day',
+        metric_type: 'total_value',
+        since: String(since),
+        until: String(until),
+      });
+      for (const m of ins.data ?? []) view.stats[m.name] = m.total_value?.value ?? 0;
+    } catch (e) {
+      view.statsError = (e as Error).message;
+    }
     try {
       const r = await graphGet<{ data: { total_value?: { breakdowns?: { results?: { dimension_values: string[]; value: number }[] }[] } }[] }>(
         `${acc.accountId}/insights`,

@@ -6,7 +6,7 @@ import { Users, RefreshCw, AlertCircle } from 'lucide-react';
 import { DemoCard, SectionTitle, StatCard, PlatformChip, formatFollowers } from '../_components/ui';
 
 interface Dim { label: string; value: number }
-interface IgView { accountId: string; name?: string; followers?: number | null; age: Dim[]; gender: Dim[]; countries: Dim[]; hasData?: boolean; error?: string }
+interface IgView { accountId: string; name?: string; followers?: number | null; age: Dim[]; gender: Dim[]; countries: Dim[]; stats?: Record<string, number>; hasData?: boolean; error?: string }
 interface FbView { accountId: string; name?: string; followers?: number | null; category?: string | null; link?: string | null; stats: { totalFollows?: number; newFollows28d?: number; engagements28d?: number; pageViews28d?: number; videoViews28d?: number; totalActions28d?: number }; reactions?: Record<string, number>; hasData?: boolean; error?: string }
 
 const GENDER_COLORS = ['#025FCC', '#DB2777', '#9CA3AF'];
@@ -94,9 +94,24 @@ export default function AudienceInsights() {
               <AlertCircle size={16} /> Couldn’t load data: {view.error}. Reconnect the account to grant the insights permission.
             </DemoCard>
           ) : platform === 'instagram' && ig ? (
-            !ig.hasData ? (
-              <DemoCard className="py-12 text-center text-sm text-neutral-600">
-                No demographic data yet. Instagram only provides age/gender/country once the account has <span className="font-medium">100+ followers</span>.
+            <>
+              {/* Account performance — last 28 days (all IG account metrics) */}
+              {ig.stats && Object.keys(ig.stats).length > 0 && (
+                <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+                  <StatCard label="Followers" value={ig.followers != null ? formatFollowers(ig.followers) : '—'} />
+                  <StatCard label="Reach · 28d" value={formatFollowers(ig.stats.reach ?? 0)} />
+                  <StatCard label="Views · 28d" value={formatFollowers(ig.stats.views ?? 0)} />
+                  <StatCard label="Accounts engaged · 28d" value={formatFollowers(ig.stats.accounts_engaged ?? 0)} />
+                  <StatCard label="Interactions · 28d" value={formatFollowers(ig.stats.total_interactions ?? 0)} />
+                  <StatCard label="Profile views · 28d" value={formatFollowers(ig.stats.profile_views ?? 0)} />
+                  <StatCard label="Website clicks · 28d" value={formatFollowers(ig.stats.website_clicks ?? 0)} />
+                  <StatCard label="Link taps · 28d" value={formatFollowers(ig.stats.profile_links_taps ?? 0)} />
+                </div>
+              )}
+
+              {!ig.hasData ? (
+              <DemoCard className="py-10 text-center text-sm text-neutral-600">
+                Demographic breakdowns (age / gender / country) appear once the account has <span className="font-medium">100+ followers</span> — the performance metrics above are live now.
               </DemoCard>
             ) : (
               <>
@@ -154,7 +169,8 @@ export default function AudienceInsights() {
                   </div>
                 </DemoCard>
               </>
-            )
+            )}
+            </>
           ) : platform === 'facebook' && fb ? (
             <>
               <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
