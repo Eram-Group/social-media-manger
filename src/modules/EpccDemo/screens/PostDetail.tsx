@@ -217,9 +217,9 @@ export default function PostDetail() {
               {live.data?.metrics?.videoViewers != null && <LiveStat label="Video viewers" value={(live.data.metrics.videoViewers).toLocaleString()} />}
             </div>
           )}
-          {/* Reaction breakdown (real, when available) */}
-          {!live.error && live.data?.reactions && Object.keys(live.data.reactions).length > 0 && (
-            <Breakdown title="Reactions" data={live.data.reactions} />
+          {/* Reaction donut (real, summed in the backend) */}
+          {!live.error && live.data?.reactions && (
+            <ReactionDonut reactions={live.data.reactions} total={live.data.metrics?.totalReactions ?? 0} />
           )}
           {/* Activity + click-type breakdowns (Facebook) */}
           {!live.error && live.data?.breakdowns?.activity && Object.keys(live.data.breakdowns.activity).length > 0 && (
@@ -419,6 +419,54 @@ const LiveStat = ({ label, value }: { label: string; value: string }) => (
     <p className="text-xs text-neutral-500">{label}</p>
   </div>
 );
+
+// Reaction breakdown as a donut with the total (summed server-side) in the center.
+const REACTION_META: Record<string, { emoji: string; label: string; color: string }> = {
+  like: { emoji: '👍', label: 'Like', color: '#1877F2' },
+  love: { emoji: '❤️', label: 'Love', color: '#F33E58' },
+  haha: { emoji: '😆', label: 'Haha', color: '#F7B125' },
+  wow: { emoji: '😮', label: 'Wow', color: '#00A87E' },
+  sad: { emoji: '😢', label: 'Sad', color: '#7C3AED' },
+  angry: { emoji: '😠', label: 'Angry', color: '#EE4D2D' },
+};
+const ReactionDonut = ({ reactions, total }: { reactions: Record<string, number>; total: number }) => {
+  const data = Object.entries(reactions)
+    .map(([k, v]) => ({ key: k, value: Number(v) || 0, ...(REACTION_META[k] ?? { emoji: '•', label: k, color: '#9CA3AF' }) }))
+    .filter((d) => d.value > 0);
+  return (
+    <div>
+      <p className="mb-1.5 text-xs font-medium uppercase text-neutral-500">Reactions</p>
+      {data.length === 0 ? (
+        <p className="text-sm text-neutral-400">No reactions yet.</p>
+      ) : (
+        <div className="flex flex-col items-center gap-4 sm:flex-row">
+          <div className="relative h-40 w-40 shrink-0">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie data={data} dataKey="value" nameKey="label" innerRadius={52} outerRadius={72} paddingAngle={2} stroke="none">
+                  {data.map((d) => <Cell key={d.key} fill={d.color} />)}
+                </Pie>
+                <Tooltip formatter={(v: number, _n, p: any) => [`${v}`, p?.payload?.label]} />
+              </PieChart>
+            </ResponsiveContainer>
+            <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+              <span className="font-Sora text-2xl font-bold text-text-dark">{total.toLocaleString()}</span>
+              <span className="text-[11px] text-neutral-500">reactions</span>
+            </div>
+          </div>
+          <div className="flex flex-1 flex-wrap gap-2">
+            {data.sort((a, b) => b.value - a.value).map((d) => (
+              <span key={d.key} className="flex items-center gap-1.5 rounded-full border border-neutral-200 bg-white px-2.5 py-1 text-sm text-neutral-700">
+                <span className="h-2.5 w-2.5 rounded-full" style={{ background: d.color }} />
+                <span>{d.emoji} {d.label}</span> <span className="font-semibold">{d.value.toLocaleString()}</span>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 const Breakdown = ({ title, data }: { title: string; data: Record<string, number> }) => {
   const items = Object.entries(data).filter(([, n]) => Number(n) > 0);
