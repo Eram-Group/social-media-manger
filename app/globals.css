@@ -27,3 +27,68 @@ input[type='number']::-webkit-outer-spin-button {
 
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* ── Print / "Export PDF" ──────────────────────────────────────────────────
+   Turn the Analytics page into a branded, multi-page PDF report: strip the app
+   chrome, add a running header + footer on every page, and never split a card
+   across a page break. */
+
+/* Branded running header/footer — fixed elements repeat on every printed page. */
+.print-runner { display: none; }
+/* Content that should appear ONLY in the exported PDF, never on screen. */
+.pdf-only { display: none; }
+
+@media print {
+  aside,
+  header,
+  .fixed { display: none !important; }
+  main { overflow: visible !important; height: auto !important; padding: 0 !important; }
+  html, body { background: #fff !important; }
+  * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+
+  @page { size: A4; margin: 18mm 12mm 16mm; }
+
+  .pdf-only { display: block !important; }
+
+  /* Tighter, cleaner report typography; flatten the screen card shadow. */
+  .pdf-body { font-size: 11px; padding-top: 4mm; padding-bottom: 4mm; }
+  .pdf-body .demo-card {
+    box-shadow: none !important;
+    border-color: #E5E7EB !important;
+    border-radius: 12px;
+    padding: 14px 16px !important;
+  }
+
+  /* Keep charts, KPI rows and cards intact across page breaks. */
+  .demo-card,
+  .pdf-keep { break-inside: avoid; page-break-inside: avoid; }
+  h2 { break-after: avoid; }
+  /* Push a major section to a fresh page for a clean, report-like flow. */
+  .pdf-break-before { break-before: page; page-break-before: always; }
+
+  /* Recharts must keep full width when printed (ResizeObserver doesn't fire in
+     the print reflow, so pin it explicitly). */
+  .recharts-responsive-container,
+  .recharts-wrapper { width: 100% !important; }
+  .recharts-surface { overflow: visible; }
+
+  /* Cover masthead — strong branded band at the top of page 1. */
+  .pdf-cover { border: 1px solid #E5E7EB !important; box-shadow: none !important; }
+  .pdf-cover-bar { height: 8px !important; }
+
+  /* Show + pin the branded running header/footer on every page. */
+  .print-runner { display: flex !important; }
+  .print-header {
+    position: fixed; top: 0; left: 0; right: 0;
+    align-items: center; justify-content: space-between;
+    padding: 4mm 0; border-bottom: 2px solid #025FCC;
+    font-size: 9px; color: #025FCC; font-weight: 700;
+    letter-spacing: .04em; text-transform: uppercase;
+  }
+  .print-footer {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    align-items: center; justify-content: space-between;
+    padding: 3mm 0; border-top: 1px solid #E3E3E3;
+    font-size: 8.5px; color: #9CA3AF;
+  }
+}

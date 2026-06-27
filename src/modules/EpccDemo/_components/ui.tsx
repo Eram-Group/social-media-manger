@@ -12,7 +12,7 @@ export const DemoCard: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({
 }) => (
   <div
     className={cn(
-      'rounded-xl border border-neutral-200 bg-white p-6 shadow-7',
+      'demo-card rounded-xl border border-neutral-200 bg-white p-6 shadow-7',
       className,
     )}
     {...props}
