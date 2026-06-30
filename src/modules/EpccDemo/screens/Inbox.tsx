@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Send, AtSign, MessageSquare, MessageCircle, Check, Clock, Inbox as InboxIcon, CheckCircle2, ExternalLink, Heart, RefreshCw } from 'lucide-react';
 import { cn } from '@/shadecn/lib/utils';
-import { DemoCard, SectionTitle, PlatformChip } from '../_components/ui';
+import { DemoCard, SectionTitle, PlatformChip, ListRowSkeleton } from '../_components/ui';
 import { DsSelect } from '../_components/form';
 import { useApi } from '../_services/useApi';
 import { TEAM, SAVED_REPLIES, TConvType } from '@/mock-server/inbox';
@@ -100,11 +100,15 @@ export default function Inbox() {
             ))}
           </div>
           <div className="flex-1 overflow-y-auto">
-            {list.length === 0 && (
-              <div className="flex h-full flex-col items-center justify-center gap-2 p-6 text-center text-sm text-neutral-500">
-                <InboxIcon size={20} /> {loading ? 'Loading…' : filter === 'all' ? 'No comments yet' : `No ${filter === 'dm' ? 'messages' : filter + 's'}`}
+            {loading && list.length === 0 ? (
+              <div className="flex flex-col gap-3 p-3">
+                {[0, 1, 2, 3, 4].map((i) => <ListRowSkeleton key={i} />)}
               </div>
-            )}
+            ) : list.length === 0 ? (
+              <div className="flex h-full flex-col items-center justify-center gap-2 p-6 text-center text-sm text-neutral-500">
+                <InboxIcon size={20} /> {filter === 'all' ? 'No comments yet' : `No ${filter === 'dm' ? 'messages' : filter + 's'}`}
+              </div>
+            ) : null}
             {list.map((c) => {
               const TypeIcon = typeIcon[c.type];
               return (

@@ -6,7 +6,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { Eye, Plus, Pencil, Trash2, AlertTriangle, Megaphone, List, Table2, LayoutGrid, Check, CalendarClock, XCircle, Search, Inbox, Heart } from 'lucide-react';
 import { Button } from '@UI/index';
 import { cn } from '@/shadecn/lib/utils';
-import { DemoCard, SectionTitle, StatCard, StatusPill, PlatformChip, formatFollowers } from '../_components/ui';
+import { DemoCard, SectionTitle, StatCard, StatusPill, PlatformChip, formatFollowers, ListRowSkeleton } from '../_components/ui';
 import { Backdrop, ModalPanel, Stagger, StaggerItem } from '../_components/motion';
 import PostSheet from '../_components/PostSheet';
 import PostThumb from '../_components/PostThumb';
@@ -250,16 +250,7 @@ export default function PostsAnalytics() {
 
       {loading && posts.length === 0 ? (
         <div className="flex flex-col gap-3">
-          {[0, 1, 2, 3].map((i) => (
-            <DemoCard key={i} className="flex items-center gap-3 p-4">
-              <div className="h-12 w-12 shrink-0 animate-pulse rounded-lg bg-neutral-200" />
-              <div className="flex-1 space-y-2">
-                <div className="h-3 w-2/3 animate-pulse rounded bg-neutral-200" />
-                <div className="h-3 w-1/3 animate-pulse rounded bg-neutral-100" />
-              </div>
-            </DemoCard>
-          ))}
-          <p className="text-center text-sm text-neutral-500">Loading your posts…</p>
+          {[0, 1, 2, 3, 4].map((i) => <ListRowSkeleton key={i} />)}
         </div>
       ) : filtered.length === 0 ? (
         posts.length === 0 ? (
