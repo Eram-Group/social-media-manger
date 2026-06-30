@@ -377,7 +377,7 @@ export default function Competitors() {
               <CategoryBarChart data={engBar} horizontal />
             </ChartCard>
             <ChartCard title="Follower growth" subtitle="Top tracked competitors"
-              isEmpty={trendSeries.length === 0}>
+              isEmpty={trendData.length < 2}>
               <TrendLineChart data={trendData} series={trendSeries} />
             </ChartCard>
           </div>
