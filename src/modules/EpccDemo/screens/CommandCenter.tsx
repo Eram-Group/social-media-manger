@@ -1,10 +1,10 @@
 'use client';
 
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Cell } from 'recharts';
 import { useEffect, useMemo, useState } from 'react';
 import { cn } from '@/shadecn/lib/utils';
-import { DemoCard, SectionTitle, StatCard, PlatformChip, StatusPill, formatFollowers } from '../_components/ui';
-import { getPlatform, platformColorByName, TPlatformId } from '@/mock-server/platforms';
+import { DemoCard, SectionTitle, StatCard, PlatformChip, StatusPill, formatFollowers, ChartCard, ListRowSkeleton } from '../_components/ui';
+import { DonutChart, TrendLineChart, CategoryBarChart } from '../_components/charts';
+import { getPlatform, TPlatformId } from '@/mock-server/platforms';
 import AiInsightStrip from '../_components/AiInsightStrip';
 import PostSheet from '../_components/PostSheet';
 import { usePosts } from '@/mock-server/posts-store';
@@ -23,7 +23,15 @@ interface PublicAccount {
 const eng = (p: IPost) => (p.likes ?? 0) + (p.comments ?? 0) + (p.shares ?? 0);
 const STATUS_COLOR: Record<string, string> = { published: '#00A87E', scheduled: '#025FCC', draft: '#F0C500' };
 
-interface Overview { facebook?: { totals?: { netFollows28d?: number } }[]; instagram?: { stats?: { reach?: number } }[]; bestTimes?: { recommended?: { label: string } | null } | null }
+type Overview = {
+  available?: boolean;
+  facebook?: { followers?: number; growth?: { date: string; net: number }[];
+    daily?: { date: string; engagements: number }[];
+    contentMix?: { label: string; value: number }[];
+    totals?: { netFollows28d?: number } }[];
+  instagram?: { stats?: { reach?: number } }[];
+  bestTimes?: { recommended?: { label?: string } | null } | null;
+};
 interface Metrics { general?: { avg_engagement_rate_percentage?: number } }
 
 export default function CommandCenter() {
@@ -57,8 +65,13 @@ export default function CommandCenter() {
       const name = getPlatform(a.platform).name;
       map.set(name, (map.get(name) ?? 0) + (a.followers ?? 0));
     }
-    return [...map.entries()].map(([name, value]) => ({ name, value }));
+    return [...map.entries()].map(([label, value]) => ({ label, value }));
   }, [accounts]);
+
+  const fb = overview?.facebook?.[0];
+  const growth = (fb?.growth ?? []).map((g) => ({ date: g.date?.slice(5), net: g.net }));
+  const engTrend = (fb?.daily ?? []).map((d) => ({ date: d.date?.slice(5), engagements: d.engagements }));
+  const contentMix = (fb?.contentMix ?? []).map((c) => ({ label: c.label, value: c.value }));
 
   const topPosts = [...published].sort((a, b) => eng(b) - eng(a)).slice(0, 5);
   const recent = published.slice(0, 5);
@@ -143,27 +156,22 @@ export default function CommandCenter() {
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
         {/* Followers by platform (real) */}
-        <DemoCard className="xl:col-span-2">
-          <SectionTitle title="Followers by platform" subtitle="From your connected accounts" />
-          <div className="mt-4 h-72">
-            {followersByPlatform.length ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={followersByPlatform} layout="vertical" margin={{ left: 20, right: 16 }}>
-                  <XAxis type="number" hide />
-                  <YAxis type="category" dataKey="name" tick={{ fontSize: 12, fill: '#757575' }} width={80} />
-                  <Tooltip formatter={(v: number) => formatFollowers(v)} />
-                  <Bar dataKey="value" radius={[0, 6, 6, 0]}>
-                    {followersByPlatform.map((entry, i) => (
-                      <Cell key={i} fill={platformColorByName(entry.name)} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="flex h-full items-center justify-center text-sm text-neutral-400">No connected accounts yet</div>
-            )}
-          </div>
-        </DemoCard>
+        <ChartCard title="Followers by platform" height={260}
+          isEmpty={!followersByPlatform.length} emptyLabel="No connected accounts yet">
+          <DonutChart data={followersByPlatform} />
+        </ChartCard>
+
+        <ChartCard title="Follower growth" subtitle="Net new followers / day"
+          isEmpty={!growth.length} emptyLabel="No follower data yet">
+          <TrendLineChart data={growth} series={[{ key: 'net', name: 'Net' }]} />
+        </ChartCard>
+        <ChartCard title="Engagement trend" subtitle="Daily post engagements"
+          isEmpty={!engTrend.length}>
+          <TrendLineChart data={engTrend} series={[{ key: 'engagements', name: 'Engagements' }]} />
+        </ChartCard>
+        <ChartCard title="Content mix" isEmpty={!contentMix.length}>
+          <CategoryBarChart data={contentMix} />
+        </ChartCard>
 
         {/* Top posts by engagement (real) */}
         <DemoCard>
@@ -174,7 +182,11 @@ export default function CommandCenter() {
                 <p className="min-w-0 flex-1 truncate text-sm text-neutral-800">{p.content}</p>
                 <span className="shrink-0 text-xs font-medium text-neutral-600">{eng(p).toLocaleString()} eng</span>
               </button>
-            )) : <p className="py-8 text-center text-sm text-neutral-400">{loading ? 'Loading…' : 'No published posts yet'}</p>}
+            )) : loading ? (
+              <div>{Array.from({ length: 4 }).map((_, i) => <ListRowSkeleton key={i} />)}</div>
+            ) : (
+              <p className="py-8 text-center text-sm text-neutral-400">No published posts yet</p>
+            )}
           </div>
         </DemoCard>
 
@@ -240,7 +252,11 @@ export default function CommandCenter() {
                   {eng(p).toLocaleString()} engagement
                 </span>
               </button>
-            )) : <p className="py-8 text-center text-sm text-neutral-400">{loading ? 'Loading…' : 'No published posts yet'}</p>}
+            )) : loading ? (
+              <div>{Array.from({ length: 4 }).map((_, i) => <ListRowSkeleton key={i} />)}</div>
+            ) : (
+              <p className="py-8 text-center text-sm text-neutral-400">No published posts yet</p>
+            )}
           </div>
         </DemoCard>
       </div>
