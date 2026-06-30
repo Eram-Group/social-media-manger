@@ -104,7 +104,7 @@ export default function AnalyticsHub() {
   const reactionsData = Object.entries(fbOv?.reactions ?? {}).map(([label, value]) => ({ label, value: Number(value) }));
   const engByPlatform = (report?.platforms ?? []).map((p) => ({
     label: p.name ?? p.platform,
-    value: Number((p.stats as any)?.engagement_rate_percentage ?? (p.stats as any)?.engagements28d ?? 0),
+    value: Number((p.stats as any)?.engagements ?? (p.stats as any)?.total_interactions ?? (p.stats as any)?.accounts_engaged ?? 0),
   }));
   const reachTrend = (fbOv?.daily ?? []).map((d: any) => ({ date: d.date?.slice(5), pageViews: d.pageViews, videoViews: d.videoViews }));
   const topPostsBar = (filteredTopPosts ?? []).slice(0, 6).map((p: any, i: number) => ({ label: `#${i + 1}`, value: Number(p.engagement ?? 0) }));
@@ -149,7 +149,7 @@ export default function AnalyticsHub() {
         demographics: showIG && report.demographics ? report.demographics : null,
         sentiment: sent && sentTotal > 0 ? { positive: sent.positive, neutral: sent.neutral, negative: sent.negative, themes: sent.themes ?? [] } : null,
         topPosts: filteredTopPosts.map((p) => ({ platform: p.platform, content: p.content, likes: p.likes, comments: p.comments, engagement: p.engagement })),
-        engByPlatform: engByPlatform.length ? engByPlatform : undefined,
+        engByPlatform: engByPlatform.some((d) => d.value > 0) ? engByPlatform : undefined,
         topPostsChart: topPostsBar.length ? topPostsBar : undefined,
       };
       const { buildAnalyticsPdfBlob } = await import('../_components/AnalyticsPdf');
@@ -340,7 +340,7 @@ export default function AnalyticsHub() {
             <ChartCard title="Reactions" isEmpty={!reactionsData.length}>
               <DonutChart data={reactionsData} />
             </ChartCard>
-            <ChartCard title="Engagement by platform" isEmpty={!engByPlatform.length}>
+            <ChartCard title="Engagement by platform" isEmpty={!engByPlatform.some((d) => d.value > 0)}>
               <CategoryBarChart data={engByPlatform} horizontal />
             </ChartCard>
             <ChartCard title="Views over time" subtitle="Page views & video views"

@@ -163,12 +163,12 @@ export default function Accounts() {
           </p>
         </div>
 
-        {loading ? (
+        {loading && accounts.length === 0 ? (
           <div className="flex flex-col gap-3">
             {[0, 1, 2, 3, 4].map((i) => <ListRowSkeleton key={i} />)}
           </div>
         ) : null}
-        <div className={cn('grid grid-cols-1 gap-4 md:grid-cols-2', loading ? 'hidden' : '')}>
+        <div className={cn('grid grid-cols-1 gap-4 md:grid-cols-2', loading && accounts.length === 0 ? 'hidden' : '')}>
           {PLATFORMS.map((p) => {
             const acc = byPlatform(p.id);
             const isLinked = Boolean(acc);
