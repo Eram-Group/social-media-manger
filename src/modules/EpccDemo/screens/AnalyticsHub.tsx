@@ -149,6 +149,8 @@ export default function AnalyticsHub() {
         demographics: showIG && report.demographics ? report.demographics : null,
         sentiment: sent && sentTotal > 0 ? { positive: sent.positive, neutral: sent.neutral, negative: sent.negative, themes: sent.themes ?? [] } : null,
         topPosts: filteredTopPosts.map((p) => ({ platform: p.platform, content: p.content, likes: p.likes, comments: p.comments, engagement: p.engagement })),
+        engByPlatform: engByPlatform.length ? engByPlatform : undefined,
+        topPostsChart: topPostsBar.length ? topPostsBar : undefined,
       };
       const { buildAnalyticsPdfBlob } = await import('../_components/AnalyticsPdf');
       const blob = await buildAnalyticsPdfBlob(data);

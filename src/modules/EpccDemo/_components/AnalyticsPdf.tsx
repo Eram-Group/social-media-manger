@@ -34,6 +34,8 @@ export interface AnalyticsPdfData {
   growth?: { date: string; net: number }[];
   contentMix?: PdfDim[];
   reactions?: PdfDim[];
+  engByPlatform?: PdfDim[];
+  topPostsChart?: PdfDim[];
   bestTime?: { heat: number[][]; recommended?: string | null } | null;
   platforms?: { platform: string; followers: number; stats: { k: string; v: number }[] }[];
   demographics?: { age: PdfDim[]; gender: PdfDim[]; countries: PdfDim[] } | null;
@@ -273,6 +275,24 @@ function AnalyticsDocument({ d }: { d: AnalyticsPdfData }) {
               <View style={[styles.card, { flex: 1 }]}>
                 <SectionHeader title="Reactions" />
                 <Bars data={d.reactions} color={C.accent} />
+              </View>
+            )}
+          </View>
+        ) : null}
+
+        {/* engagement by platform + top posts chart */}
+        {(d.engByPlatform?.length || d.topPostsChart?.length) ? (
+          <View style={styles.twoCol}>
+            {d.engByPlatform && d.engByPlatform.length > 0 && (
+              <View style={[styles.card, { flex: 1 }]}>
+                <SectionHeader title="Engagement by platform" />
+                <Bars data={d.engByPlatform} />
+              </View>
+            )}
+            {d.topPostsChart && d.topPostsChart.length > 0 && (
+              <View style={[styles.card, { flex: 1 }]}>
+                <SectionHeader title="Top posts by engagement" />
+                <Bars data={d.topPostsChart} color={C.sky} />
               </View>
             )}
           </View>
