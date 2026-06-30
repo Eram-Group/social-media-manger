@@ -55,7 +55,7 @@ async function facebookOverview(acc: any, points: PostPoint[], since: number, un
   const view: any = {
     accountId: acc.accountId, name: acc.name, platform: 'facebook',
     followers: acc.followers ?? null, category: null, link: null, talkingAbout: null,
-    growth: [], totals: {}, reactions: {}, topPosts: [], contentMix: [],
+    growth: [], daily: [], totals: {}, reactions: {}, topPosts: [], contentMix: [],
   };
   try {
     const info = await graphGet<any>(acc.accountId, {
@@ -87,6 +87,16 @@ async function facebookOverview(acc: any, points: PostPoint[], since: number, un
       const rem = num(removes[i]?.value);
       return { date, adds: add, removes: rem, net: add - rem };
     });
+
+    const eng = series.page_post_engagements ?? [];
+    const pv = series.page_views_total ?? [];
+    const vv = series.page_video_views ?? [];
+    view.daily = (series.page_daily_follows_unique ?? []).map((a, i) => ({
+      date: (a.end_time ?? '').slice(0, 10),
+      engagements: Number(eng[i]?.value ?? 0),
+      pageViews: Number(pv[i]?.value ?? 0),
+      videoViews: Number(vv[i]?.value ?? 0),
+    }));
 
     view.totals = {
       newFollows28d: sum(adds),
