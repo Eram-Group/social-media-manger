@@ -19,6 +19,33 @@ export const DemoCard: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({
   />
 );
 
+export const ChartCard: React.FC<{
+  title: string;
+  subtitle?: string;
+  right?: React.ReactNode;
+  height?: number;
+  isEmpty?: boolean;
+  emptyLabel?: string;
+  children: React.ReactNode;
+}> = ({ title, subtitle, right, height = 240, isEmpty, emptyLabel = 'No data yet', children }) => (
+  <DemoCard>
+    <div className="flex items-start justify-between gap-3">
+      <div>
+        <h3 className="font-Sora text-base font-semibold text-text-dark">{title}</h3>
+        {subtitle && <p className="mt-0.5 text-xs text-neutral-500">{subtitle}</p>}
+      </div>
+      {right}
+    </div>
+    <div className="mt-4" style={{ height }}>
+      {isEmpty ? (
+        <div className="flex h-full items-center justify-center text-sm text-neutral-400">{emptyLabel}</div>
+      ) : (
+        children
+      )}
+    </div>
+  </DemoCard>
+);
+
 export const SectionTitle: React.FC<{ title: string; subtitle?: string }> = ({
   title,
   subtitle,
