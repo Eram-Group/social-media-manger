@@ -5,13 +5,13 @@ import { AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import {
-  ResponsiveContainer, AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
-  XAxis, YAxis, Tooltip, CartesianGrid,
+  ResponsiveContainer, PieChart, Pie, Cell, Tooltip,
 } from 'recharts';
 import { ArrowLeft, Eye, TrendingUp, Megaphone, Trash2, Pencil, Heart, Send, MessageCircle, Ban, CornerDownRight, ShieldCheck, EyeOff, RotateCcw, Smartphone, X, Layers, Share2, Bookmark, MousePointerClick, Users, Play, Clock } from 'lucide-react';
 import { Button } from '@UI/index';
 import { cn } from '@/shadecn/lib/utils';
-import { DemoCard, SectionTitle, StatusPill, PlatformChip, formatFollowers, CHART_COLORS } from '../_components/ui';
+import { DemoCard, SectionTitle, StatusPill, PlatformChip, formatFollowers, CHART_COLORS, ChartCard, ChartSkeleton, ListRowSkeleton } from '../_components/ui';
+import { CategoryBarChart } from '../_components/charts';
 import { usePosts } from '@/mock-server/posts-store';
 import { getPostAnalytics, IPost, TPostStatus } from '@/mock-server/posts';
 import { getPlatform, platformChartColor, TPlatformId } from '@/mock-server/platforms';
@@ -48,6 +48,7 @@ export default function PostDetail() {
 
   // Real comments fetched for this post (see effect below).
   const [comments, setComments] = useState<IComment[]>([]);
+  const [commentsLoading, setCommentsLoading] = useState(false);
   const [draft, setDraft] = useState('');
   const [previewOpen, setPreviewOpen] = useState(false);
   const [blocked, setBlocked] = useState<string[]>([]);
@@ -78,6 +79,7 @@ export default function PostDetail() {
   useEffect(() => {
     if (!ref) { setComments([]); return; }
     let active = true;
+    setCommentsLoading(true);
     fetch(`/api/posts/comments?platform=${ref.platform}&accountId=${ref.accountId}&remoteId=${encodeURIComponent(ref.remoteId)}`, { cache: 'no-store' })
       .then((r) => r.json())
       .then((d) => {
@@ -87,8 +89,9 @@ export default function PostDetail() {
           replies: (c.replies ?? []).map((rep: any) => ({ id: rep.id, text: `${rep.fromPage ? '' : rep.author + ': '}${rep.text}`, time: (rep.time || '').slice(0, 10), likes: 0 })),
         }));
         setComments(real);
+        setCommentsLoading(false);
       })
-      .catch(() => active && setComments([]));
+      .catch(() => { if (active) { setComments([]); setCommentsLoading(false); } });
     return () => { active = false; };
   }, [ref?.remoteId, ref?.platform]);
 
@@ -104,6 +107,7 @@ export default function PostDetail() {
   const a = getPostAnalytics(post);
   const curve = a.reachCurve;
   const engagement = [{ name: 'Likes', value: a.likes }, { name: 'Comments', value: a.comments }, { name: 'Shares', value: a.shares }, { name: 'Saves', value: a.saves }];
+  const interactionData = (engagement ?? []).map((e: any) => ({ label: e.label ?? e.name, value: Number(e.value ?? 0) }));
   const reactionData = REACTIONS.map((r) => ({ ...r, value: Math.max(1, Math.round(a.likes * r.w)) }));
   const totalReactions = reactionData.reduce((s, r) => s + r.value, 0);
 
@@ -200,6 +204,9 @@ export default function PostDetail() {
               </button>
             </div>
           </div>
+          {ref && live.loading && !live.data ? (
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2"><ChartSkeleton /><ChartSkeleton /></div>
+          ) : null}
           {live.error ? (
             <p className="text-sm text-text-red">Couldn’t load live metrics: {live.error}</p>
           ) : (
@@ -257,6 +264,14 @@ export default function PostDetail() {
 
       {post.status === 'published' && (
         <>
+          {/* Interaction analytics */}
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <ChartCard title="Interactions" subtitle="Likes · comments · shares · saves"
+              isEmpty={!interactionData.length}>
+              <CategoryBarChart data={interactionData} />
+            </ChartCard>
+          </div>
+
           {/* comments (real) */}
           <div className="grid grid-cols-1 gap-6">
             <DemoCard>
@@ -301,7 +316,11 @@ export default function PostDetail() {
               )}
 
               <div className="mt-4 flex flex-col divide-y divide-neutral-100">
-                {shownComments.length === 0 && <p className="py-6 text-center text-sm text-neutral-400">No comments on this platform.</p>}
+                {commentsLoading ? (
+                  <div className="flex flex-col gap-3 py-3"><ListRowSkeleton /><ListRowSkeleton /><ListRowSkeleton /></div>
+                ) : (
+                  shownComments.length === 0 && <p className="py-6 text-center text-sm text-neutral-400">No comments on this platform.</p>
+                )}
                 {shownComments.map((c) => {
                   const isBlocked = blocked.includes(c.name);
                   return (

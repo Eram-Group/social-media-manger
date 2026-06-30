@@ -19,6 +19,33 @@ export const DemoCard: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({
   />
 );
 
+export const ChartCard: React.FC<{
+  title: string;
+  subtitle?: string;
+  right?: React.ReactNode;
+  height?: number;
+  isEmpty?: boolean;
+  emptyLabel?: string;
+  children: React.ReactNode;
+}> = ({ title, subtitle, right, height = 240, isEmpty, emptyLabel = 'No data yet', children }) => (
+  <DemoCard>
+    <div className="flex items-start justify-between gap-3">
+      <div>
+        <h3 className="font-Sora text-base font-semibold text-text-dark">{title}</h3>
+        {subtitle && <p className="mt-0.5 text-xs text-neutral-500">{subtitle}</p>}
+      </div>
+      {right}
+    </div>
+    <div className="mt-4" style={{ height }}>
+      {isEmpty ? (
+        <div className="flex h-full items-center justify-center text-sm text-neutral-400">{emptyLabel}</div>
+      ) : (
+        children
+      )}
+    </div>
+  </DemoCard>
+);
+
 export const SectionTitle: React.FC<{ title: string; subtitle?: string }> = ({
   title,
   subtitle,
@@ -105,3 +132,53 @@ export const formatFollowers = (n: number): string =>
 
 // Shared chart palette (brand tokens as hex for recharts).
 export const CHART_COLORS = ['#025FCC', '#4ED6FC', '#F0C500', '#00A87E', '#649DE0', '#01397A'];
+
+// Shared gender palette (was duplicated per-screen).
+export const GENDER_COLORS = ['#025FCC', '#DB2777', '#9CA3AF'];
+
+// ── Skeleton loaders ────────────────────────────────────────────────────────
+export const Skeleton: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({ className, ...props }) => (
+  <div className={cn('animate-pulse rounded-md bg-neutral-200/70', className)} {...props} />
+);
+
+export const SkeletonText: React.FC<{ lines?: number; className?: string }> = ({ lines = 3, className }) => (
+  <div className={cn('flex flex-col gap-2', className)}>
+    {Array.from({ length: lines }).map((_, i) => (
+      <Skeleton key={i} className={cn('h-3.5', i === lines - 1 ? 'w-2/3' : 'w-full')} />
+    ))}
+  </div>
+);
+
+export const StatCardSkeleton: React.FC = () => (
+  <DemoCard className="p-5">
+    <Skeleton className="h-3.5 w-24" />
+    <Skeleton className="mt-3 h-7 w-20" />
+    <Skeleton className="mt-2 h-3 w-28" />
+  </DemoCard>
+);
+
+export const ChartSkeleton: React.FC<{ height?: number }> = ({ height = 240 }) => (
+  <DemoCard>
+    <Skeleton className="h-4 w-40" />
+    <Skeleton className="mt-1.5 h-3 w-56" />
+    <Skeleton className="mt-5 w-full rounded-lg" style={{ height }} />
+  </DemoCard>
+);
+
+export const ListRowSkeleton: React.FC<{ withMedia?: boolean }> = ({ withMedia = true }) => (
+  <div className="flex items-center gap-3 py-3">
+    {withMedia && <Skeleton className="h-10 w-10 shrink-0 rounded-lg" />}
+    <div className="flex-1">
+      <Skeleton className="h-3.5 w-3/4" />
+      <Skeleton className="mt-2 h-3 w-1/3" />
+    </div>
+  </div>
+);
+
+export const TableRowSkeleton: React.FC<{ cols?: number }> = ({ cols = 4 }) => (
+  <div className="flex items-center gap-4 py-3">
+    {Array.from({ length: cols }).map((_, i) => (
+      <Skeleton key={i} className={cn('h-4', i === 0 ? 'w-40' : 'flex-1')} />
+    ))}
+  </div>
+);

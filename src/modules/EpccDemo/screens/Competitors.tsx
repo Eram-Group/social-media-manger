@@ -5,7 +5,8 @@ import {
   Swords, RefreshCw, Plus, Trash2, Lock, ExternalLink, Crown, Pencil, X,
   TrendingUp, TrendingDown, Hash, Activity, Search,
 } from 'lucide-react';
-import { DemoCard, SectionTitle, StatCard, formatFollowers } from '../_components/ui';
+import { DemoCard, SectionTitle, StatCard, formatFollowers, ChartCard, TableRowSkeleton } from '../_components/ui';
+import { DonutChart, CategoryBarChart, TrendLineChart, mergeHistories } from '../_components/charts';
 import { useApi } from '../_services/useApi';
 
 // ── Live data shapes (existing routes) ──────────────────────────────────────
@@ -200,6 +201,12 @@ export default function Competitors() {
     return { totalEng: tags.reduce((s, h) => s + h.topEng, 0), tagCount: tags.length, top: tags[0]?.tag };
   }, [discover]);
 
+  const engBar = tracked.map((t) => ({ label: t.name, value: Number(t.engagementRate ?? 0) }));
+  const sovData = groups.flatMap((g) => g.rows).map((r) => ({ label: r.name, value: r.followers }));
+  const topTracked = [...tracked].sort((a, b) => (b.followers ?? 0) - (a.followers ?? 0)).slice(0, 5);
+  const trendData = mergeHistories(topTracked.map((t) => ({ name: t.name, history: t.history })));
+  const trendSeries = topTracked.map((t) => ({ key: t.name, name: t.name }));
+
   const editing = Boolean(form.id);
 
   return (
@@ -351,7 +358,7 @@ export default function Competitors() {
 
       {/* ── Comparison groups ── */}
       {loading && !comp && tracked.length === 0 ? (
-        <DemoCard className="py-12 text-center text-sm text-neutral-500">Loading…</DemoCard>
+        <DemoCard>{Array.from({ length: 5 }).map((_, i) => <TableRowSkeleton key={i} />)}</DemoCard>
       ) : groups.length === 0 ? (
         <DemoCard className="flex flex-col items-center gap-3 py-14 text-center">
           <span className="flex h-12 w-12 items-center justify-center rounded-full bg-primary-100 text-primary-800"><Swords size={22} /></span>
@@ -361,7 +368,20 @@ export default function Competitors() {
           </div>
         </DemoCard>
       ) : (
-        groups.map((g) => {
+        <>
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+            <ChartCard title="Share of voice" subtitle="Follower share" isEmpty={!sovData.length}>
+              <DonutChart data={sovData} />
+            </ChartCard>
+            <ChartCard title="Engagement rate" subtitle="By competitor" isEmpty={!engBar.length}>
+              <CategoryBarChart data={engBar} horizontal />
+            </ChartCard>
+            <ChartCard title="Follower growth" subtitle="Top tracked competitors"
+              isEmpty={trendData.length < 2}>
+              <TrendLineChart data={trendData} series={trendSeries} />
+            </ChartCard>
+          </div>
+          {groups.map((g) => {
           const max = Math.max(...g.rows.map((r) => r.followers), 1);
           return (
             <DemoCard key={g.category}>
@@ -410,7 +430,8 @@ export default function Competitors() {
               </div>
             </DemoCard>
           );
-        })
+        })}
+        </>
       )}
 
       {/* ── App Review path for true automation ── */}

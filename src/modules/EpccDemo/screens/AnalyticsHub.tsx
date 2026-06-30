@@ -6,7 +6,8 @@ import {
   CartesianGrid, PieChart, Pie, Cell,
 } from 'recharts';
 import { Printer, RefreshCw, Sparkles, TrendingUp, Clock, ExternalLink, AlertCircle } from 'lucide-react';
-import { DemoCard, SectionTitle, StatCard, PlatformChip, formatFollowers, CHART_COLORS } from '../_components/ui';
+import { DemoCard, SectionTitle, StatCard, PlatformChip, formatFollowers, CHART_COLORS, ChartCard, ChartSkeleton, StatCardSkeleton, GENDER_COLORS } from '../_components/ui';
+import { DonutChart, TrendLineChart, CategoryBarChart } from '../_components/charts';
 import { useApi } from '../_services/useApi';
 import { TPlatformId } from '@/mock-server/platforms';
 import type { AnalyticsPdfData } from '../_components/AnalyticsPdf';
@@ -23,7 +24,7 @@ interface Report {
 }
 interface Dim { label: string; value: number }
 interface GrowthPoint { date: string; net: number; adds: number; removes: number }
-interface FbOv { growth: GrowthPoint[]; totals: Record<string, number>; reactions: Record<string, number>; contentMix: Dim[]; postCount?: number }
+interface FbOv { growth: GrowthPoint[]; totals: Record<string, number>; reactions: Record<string, number>; contentMix: Dim[]; postCount?: number; daily?: { date: string; pageViews: number; videoViews: number }[] }
 interface IgOv { stats?: Record<string, number>; mediaCount?: number }
 interface BestTimes { heat: number[][]; recommended: { label: string } | null; sampleSize: number }
 interface Overview { available: boolean; facebook: FbOv[]; instagram: IgOv[]; bestTimes: BestTimes | null }
@@ -32,7 +33,6 @@ type PlatformFilter = 'all' | 'facebook' | 'instagram';
 type Period = 'weekly' | 'monthly';
 
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const GENDER_COLORS = ['#025FCC', '#DB2777', '#9CA3AF'];
 const REACTION_EMOJI: Record<string, string> = { like: '👍', love: '❤️', wow: '😮', haha: '😆', sorry: '😢', sad: '😢', anger: '😡', angry: '😡', care: '🥰' };
 const SENT_COLOR: Record<string, string> = { positive: 'text-warnings-success', neutral: 'text-neutral-500', negative: 'text-text-red' };
 
@@ -101,6 +101,14 @@ export default function AnalyticsHub() {
     ];
   }, [report, platform, platformBlocks]);
 
+  const reactionsData = Object.entries(fbOv?.reactions ?? {}).map(([label, value]) => ({ label, value: Number(value) }));
+  const engByPlatform = (report?.platforms ?? []).map((p) => ({
+    label: p.name ?? p.platform,
+    value: Number((p.stats as any)?.engagements ?? (p.stats as any)?.total_interactions ?? (p.stats as any)?.accounts_engaged ?? 0),
+  }));
+  const reachTrend = (fbOv?.daily ?? []).map((d: any) => ({ date: d.date?.slice(5), pageViews: d.pageViews, videoViews: d.videoViews }));
+  const topPostsBar = (filteredTopPosts ?? []).slice(0, 6).map((p: any, i: number) => ({ label: `#${i + 1}`, value: Number(p.engagement ?? 0) }));
+
   const sent = report?.sentiment;
   const sentTotal = sent ? sent.positive + sent.neutral + sent.negative : 0;
 
@@ -141,6 +149,8 @@ export default function AnalyticsHub() {
         demographics: showIG && report.demographics ? report.demographics : null,
         sentiment: sent && sentTotal > 0 ? { positive: sent.positive, neutral: sent.neutral, negative: sent.negative, themes: sent.themes ?? [] } : null,
         topPosts: filteredTopPosts.map((p) => ({ platform: p.platform, content: p.content, likes: p.likes, comments: p.comments, engagement: p.engagement })),
+        engByPlatform: engByPlatform.some((d) => d.value > 0) ? engByPlatform : undefined,
+        topPostsChart: topPostsBar.length ? topPostsBar : undefined,
       };
       const { buildAnalyticsPdfBlob } = await import('../_components/AnalyticsPdf');
       const blob = await buildAnalyticsPdfBlob(data);
@@ -185,8 +195,15 @@ export default function AnalyticsHub() {
       </div>
 
       {loading && !report ? (
-        <DemoCard className="py-16 text-center text-sm text-neutral-500">Building your analytics from live data…</DemoCard>
-      ) : !report ? (
+          <div className="flex flex-col gap-6">
+            <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+              {Array.from({ length: 4 }).map((_, i) => <StatCardSkeleton key={i} />)}
+            </div>
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+              {Array.from({ length: 4 }).map((_, i) => <ChartSkeleton key={i} />)}
+            </div>
+          </div>
+        ) : !report ? (
         <DemoCard className="flex flex-col items-center gap-3 py-14 text-center">
           <span className="flex h-12 w-12 items-center justify-center rounded-full bg-primary-100 text-primary-800"><TrendingUp size={22} /></span>
           <p className="font-Sora text-base font-semibold">Connect an account to see analytics</p>
@@ -316,6 +333,26 @@ export default function AnalyticsHub() {
                 </div>
               </DemoCard>
             )}
+          </div>
+
+          {/* Chart cards — reactions / engagement / views / top posts */}
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <ChartCard title="Reactions" isEmpty={!reactionsData.length}>
+              <DonutChart data={reactionsData} />
+            </ChartCard>
+            <ChartCard title="Engagement by platform" isEmpty={!engByPlatform.some((d) => d.value > 0)}>
+              <CategoryBarChart data={engByPlatform} horizontal />
+            </ChartCard>
+            <ChartCard title="Views over time" subtitle="Page views & video views"
+              isEmpty={!reachTrend.length}>
+              <TrendLineChart data={reachTrend} series={[
+                { key: 'pageViews', name: 'Page views' },
+                { key: 'videoViews', name: 'Video views' },
+              ]} />
+            </ChartCard>
+            <ChartCard title="Top posts by engagement" isEmpty={!topPostsBar.length}>
+              <CategoryBarChart data={topPostsBar} />
+            </ChartCard>
           </div>
 
           {/* Reactions (FB) */}

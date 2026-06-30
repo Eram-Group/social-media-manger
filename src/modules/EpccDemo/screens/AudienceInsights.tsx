@@ -1,16 +1,14 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, PieChart, Pie, Cell } from 'recharts';
 import { Users, RefreshCw, AlertCircle } from 'lucide-react';
-import { DemoCard, SectionTitle, StatCard, PlatformChip, formatFollowers } from '../_components/ui';
+import { DemoCard, SectionTitle, StatCard, PlatformChip, formatFollowers, ChartCard, ChartSkeleton, GENDER_COLORS } from '../_components/ui';
+import { DonutChart, CategoryBarChart } from '../_components/charts';
 import { useApi } from '../_services/useApi';
 
 interface Dim { label: string; value: number }
 interface IgView { accountId: string; name?: string; followers?: number | null; age: Dim[]; gender: Dim[]; countries: Dim[]; stats?: Record<string, number>; hasData?: boolean; error?: string }
 interface FbView { accountId: string; name?: string; followers?: number | null; category?: string | null; link?: string | null; stats: { totalFollows?: number; newFollows28d?: number; engagements28d?: number; pageViews28d?: number; videoViews28d?: number; totalActions28d?: number }; reactions?: Record<string, number>; hasData?: boolean; error?: string }
-
-const GENDER_COLORS = ['#025FCC', '#DB2777', '#9CA3AF'];
 
 export default function AudienceInsights() {
   const { data: raw, loading, refresh } = useApi<{ available: boolean; instagram: IgView[]; facebook: FbView[] }>('/api/audience');
@@ -28,6 +26,10 @@ export default function AudienceInsights() {
   const ig = platform === 'instagram' ? (view as IgView) : null;
   const fb = platform === 'facebook' ? (view as FbView) : null;
 
+  const ageData = (ig?.age ?? []).map((d) => ({ label: d.label, value: d.value }));
+  const genderData = (ig?.gender ?? []).map((d) => ({ label: d.label, value: d.value }));
+  const countryData = (ig?.countries ?? []).slice(0, 8).map((d) => ({ label: d.label, value: d.value }));
+
   const tabs = useMemo(() => {
     const t: { key: 'instagram' | 'facebook'; count: number }[] = [];
     if (igList.length) t.push({ key: 'instagram', count: igList.length });
@@ -44,8 +46,10 @@ export default function AudienceInsights() {
         </button>
       </div>
 
-      {loading ? (
-        <DemoCard className="py-12 text-center text-sm text-neutral-500">Loading audience data…</DemoCard>
+      {loading && !raw ? (
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          {Array.from({ length: 3 }).map((_, i) => <ChartSkeleton key={i} />)}
+        </div>
       ) : !data.available ? (
         <DemoCard className="flex flex-col items-center gap-3 py-14 text-center">
           <span className="flex h-12 w-12 items-center justify-center rounded-full bg-primary-100 text-primary-800"><Users size={22} /></span>
@@ -111,53 +115,16 @@ export default function AudienceInsights() {
                   <StatCard label="Top country" value={ig.countries[0]?.label ?? '—'} />
                 </div>
                 <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-                  <DemoCard className="lg:col-span-2">
-                    <SectionTitle title="Age distribution" subtitle="Followers by age range" />
-                    <div className="mt-4 h-64">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={ig.age} margin={{ left: -16, top: 8 }}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="#E3E3E3" />
-                          <XAxis dataKey="label" tick={{ fontSize: 12, fill: '#757575' }} />
-                          <YAxis tick={{ fontSize: 12, fill: '#757575' }} tickFormatter={(v) => formatFollowers(v)} />
-                          <Tooltip formatter={(v: number) => formatFollowers(v)} />
-                          <Bar dataKey="value" radius={[6, 6, 0, 0]} fill="#025FCC" />
-                        </BarChart>
-                      </ResponsiveContainer>
-                    </div>
-                  </DemoCard>
-                  <DemoCard>
-                    <SectionTitle title="Gender" />
-                    <div className="mt-2 h-52">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                          <Pie data={ig.gender} dataKey="value" nameKey="label" innerRadius={50} outerRadius={80} paddingAngle={3}>
-                            {ig.gender.map((_, i) => <Cell key={i} fill={GENDER_COLORS[i % GENDER_COLORS.length]} />)}
-                          </Pie>
-                          <Tooltip formatter={(v: number) => formatFollowers(v)} />
-                        </PieChart>
-                      </ResponsiveContainer>
-                    </div>
-                    <div className="flex flex-wrap justify-center gap-3 text-xs text-neutral-700">
-                      {ig.gender.map((g, i) => (
-                        <span key={g.label} className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full" style={{ background: GENDER_COLORS[i % GENDER_COLORS.length] }} /> {g.label} ({formatFollowers(g.value)})</span>
-                      ))}
-                    </div>
-                  </DemoCard>
+                  <ChartCard title="Age distribution" isEmpty={!ageData.length}>
+                    <CategoryBarChart data={ageData} />
+                  </ChartCard>
+                  <ChartCard title="Gender" isEmpty={!genderData.length}>
+                    <DonutChart data={genderData} colors={GENDER_COLORS} />
+                  </ChartCard>
+                  <ChartCard title="Top countries" isEmpty={!countryData.length}>
+                    <CategoryBarChart data={countryData} horizontal />
+                  </ChartCard>
                 </div>
-                <DemoCard>
-                  <SectionTitle title="Top countries" subtitle="Where your followers are" />
-                  <div className="mt-4 flex flex-col gap-2.5">
-                    {(() => {
-                      const max = Math.max(...ig.countries.map((c) => c.value), 1);
-                      return ig.countries.map((c) => (
-                        <div key={c.label}>
-                          <div className="mb-1 flex justify-between text-sm"><span className="text-neutral-700">{c.label}</span><span className="font-medium text-neutral-800">{formatFollowers(c.value)}</span></div>
-                          <div className="h-2 w-full rounded-full bg-neutral-200"><div className="h-2 rounded-full bg-primary-800" style={{ width: `${Math.round((c.value / max) * 100)}%` }} /></div>
-                        </div>
-                      ));
-                    })()}
-                  </div>
-                </DemoCard>
               </>
             )}
             </>

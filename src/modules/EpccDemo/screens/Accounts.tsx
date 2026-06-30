@@ -7,7 +7,7 @@ import { Trash2, Check, AlertCircle, RefreshCw, Users } from 'lucide-react';
 import { Button } from '@UI/index';
 import { cn } from '@/shadecn/lib/utils';
 import { Backdrop, ModalPanel } from '../_components/motion';
-import { DemoCard, SectionTitle, PlatformChip, StatCard, formatFollowers } from '../_components/ui';
+import { DemoCard, SectionTitle, PlatformChip, StatCard, StatCardSkeleton, ListRowSkeleton, formatFollowers } from '../_components/ui';
 import { PLATFORMS, getPlatform, TPlatformId } from '@/mock-server/platforms';
 
 const CONNECTABLE: TPlatformId[] = ['facebook', 'instagram'];
@@ -127,7 +127,11 @@ export default function Accounts() {
           </div>
         </div>
 
-        {accounts.length === 0 && !loading ? (
+        {loading && accounts.length === 0 ? (
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+            {[0, 1, 2, 3].map((i) => <StatCardSkeleton key={i} />)}
+          </div>
+        ) : accounts.length === 0 ? (
           <DemoCard className="flex flex-col items-center gap-3 py-12 text-center">
             <span className="flex h-12 w-12 items-center justify-center rounded-full bg-primary-100 text-primary-800"><Users size={22} /></span>
             <p className="text-sm text-neutral-600">No accounts connected yet — link one below to see your metrics.</p>
@@ -159,7 +163,12 @@ export default function Accounts() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        {loading && accounts.length === 0 ? (
+          <div className="flex flex-col gap-3">
+            {[0, 1, 2, 3, 4].map((i) => <ListRowSkeleton key={i} />)}
+          </div>
+        ) : null}
+        <div className={cn('grid grid-cols-1 gap-4 md:grid-cols-2', loading && accounts.length === 0 ? 'hidden' : '')}>
           {PLATFORMS.map((p) => {
             const acc = byPlatform(p.id);
             const isLinked = Boolean(acc);

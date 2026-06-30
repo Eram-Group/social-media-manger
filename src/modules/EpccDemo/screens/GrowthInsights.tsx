@@ -6,7 +6,8 @@ import {
   CartesianGrid, PieChart, Pie, Cell,
 } from 'recharts';
 import { TrendingUp, RefreshCw, Clock, Sparkles, ExternalLink, AlertCircle } from 'lucide-react';
-import { DemoCard, SectionTitle, StatCard, formatFollowers, CHART_COLORS } from '../_components/ui';
+import { DemoCard, SectionTitle, StatCard, formatFollowers, CHART_COLORS, ChartCard, StatCardSkeleton, ChartSkeleton } from '../_components/ui';
+import { CategoryBarChart, TrendLineChart, ScatterPlot } from '../_components/charts';
 import { useApi } from '../_services/useApi';
 
 interface GrowthPoint { date: string; adds: number; removes: number; net: number }
@@ -20,6 +21,7 @@ interface FbView {
   reactions: Record<string, number>;
   topPosts: FbPost[];
   contentMix: Dim[];
+  daily?: { date: string; engagements: number }[];
 }
 interface IgView { accountId: string; name?: string; followers?: number | null; stats?: Record<string, number>; mediaCount?: number }
 interface BestTimes {
@@ -58,6 +60,10 @@ export default function GrowthInsights() {
   const ig = data.instagram?.[0];
   const bt = data.bestTimes;
 
+  const netNew = (fb?.growth ?? []).map((g) => ({ label: g.date.slice(5), value: g.net }));
+  const engTrend = (fb?.daily ?? []).map((d) => ({ date: d.date.slice(5), engagements: d.engagements }));
+  const perf = (fb?.topPosts ?? []).map((p) => ({ x: p.eng, y: p.comments, name: (p.message ?? '').slice(0, 24) }));
+
   const heatMax = useMemo(() => {
     if (!bt) return 0;
     let m = 0;
@@ -86,7 +92,14 @@ export default function GrowthInsights() {
       </div>
 
       {loading && !raw ? (
-        <DemoCard className="py-12 text-center text-sm text-neutral-500">Loading real performance data…</DemoCard>
+        <div className="flex flex-col gap-6">
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+            {Array.from({ length: 4 }).map((_, i) => <StatCardSkeleton key={i} />)}
+          </div>
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            {Array.from({ length: 3 }).map((_, i) => <ChartSkeleton key={i} />)}
+          </div>
+        </div>
       ) : !data.available ? (
         <DemoCard className="flex flex-col items-center gap-3 py-14 text-center">
           <span className="flex h-12 w-12 items-center justify-center rounded-full bg-primary-100 text-primary-800"><TrendingUp size={22} /></span>
@@ -212,6 +225,19 @@ export default function GrowthInsights() {
                 </div>
               </DemoCard>
             )}
+          </div>
+
+          {/* ---- New chart cards ---- */}
+          <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+            <ChartCard title="Net new followers" subtitle="Per day" isEmpty={!netNew.length}>
+              <CategoryBarChart data={netNew} />
+            </ChartCard>
+            <ChartCard title="Engagement trend" subtitle="Daily post engagements" isEmpty={!engTrend.length}>
+              <TrendLineChart data={engTrend} series={[{ key: 'engagements', name: 'Engagements' }]} />
+            </ChartCard>
+            <ChartCard title="Post performance" subtitle="Engagement vs comments" isEmpty={!perf.length}>
+              <ScatterPlot data={perf} xName="Engagement" yName="Comments" />
+            </ChartCard>
           </div>
 
           {/* ---- Reactions ---- */}
