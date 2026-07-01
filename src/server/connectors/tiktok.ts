@@ -53,6 +53,16 @@ export async function ensureFreshToken(account: ConnectedAccount): Promise<Conne
   return updated;
 }
 
+async function getCreatorInfo(account: ConnectedAccount): Promise<{ privacyLevel: string }> {
+  const r = await ttPost<{ data?: { privacy_level_options?: string[] } }>(
+    account.accessToken, '/post/publish/creator_info/query/', {},
+  );
+  const opts = r.data?.privacy_level_options ?? [];
+  // Prefer PUBLIC when allowed; else the first allowed (SELF_ONLY pre-audit).
+  const privacyLevel = opts.includes('PUBLIC_TO_EVERYONE') ? 'PUBLIC_TO_EVERYONE' : (opts[0] ?? 'SELF_ONLY');
+  return { privacyLevel };
+}
+
 export const tiktokConnector: SocialConnector = {
   id: 'tiktok',
   assertConfigured: assertTiktokConfigured,
@@ -84,7 +94,43 @@ export const tiktokConnector: SocialConnector = {
       meta: { refreshToken: t.refresh_token },
     }];
   },
-  async publish(_account: ConnectedAccount, _input: PublishInput): Promise<PublishResult> {
-    throw new Error('TikTok publishing is not implemented yet.'); // Phase B, Task 4
+  async publish(account: ConnectedAccount, input: PublishInput): Promise<PublishResult> {
+    account = await ensureFreshToken(account);
+    const { privacyLevel } = await getCreatorInfo(account);
+    const isVideo = Boolean(input.videoUrl || input.videoBlob);
+    let publishId: string;
+
+    if (isVideo) {
+      const videoUrl = input.videoUrl;
+      if (!videoUrl) throw new Error('TikTok video publish requires a public video URL.');
+      const init = await ttPost<{ data?: { publish_id?: string } }>(
+        account.accessToken, '/post/publish/video/init/',
+        { post_info: { title: input.message ?? '', privacy_level: privacyLevel },
+          source_info: { source: 'PULL_FROM_URL', video_url: videoUrl } },
+      );
+      publishId = init.data?.publish_id ?? '';
+    } else {
+      const photos = input.imageUrls ?? (input.imageUrl ? [input.imageUrl] : []);
+      if (!photos.length) throw new Error('TikTok photo publish requires at least one public image URL.');
+      const init = await ttPost<{ data?: { publish_id?: string } }>(
+        account.accessToken, '/post/publish/content/init/',
+        { media_type: 'PHOTO', post_mode: 'DIRECT_POST',
+          post_info: { title: input.message ?? '', privacy_level: privacyLevel },
+          source_info: { source: 'PULL_FROM_URL', photo_images: photos } },
+      );
+      publishId = init.data?.publish_id ?? '';
+    }
+
+    // Poll status until complete (bounded).
+    for (let i = 0; i < 30 && publishId; i++) {
+      const st = await ttPost<{ data?: { status?: string } }>(
+        account.accessToken, '/post/publish/status/fetch/', { publish_id: publishId },
+      );
+      const status = st.data?.status;
+      if (status === 'PUBLISH_COMPLETE') break;
+      if (status === 'FAILED') throw new Error('TikTok failed to publish the post.');
+      await new Promise((r) => setTimeout(r, 3000));
+    }
+    return { remoteId: publishId, raw: { publishId } };
   },
 };
