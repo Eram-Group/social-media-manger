@@ -122,7 +122,6 @@
       <span><i style="background:#7C3AED"></i>🔒 Needs LinkedIn Community Management API approval</span>
       <span><i style="background:var(--primary)"></i>💲 Needs a paid API tier</span>
       <span><i style="background:var(--red)"></i>⛔ Not available (platform limit)</span>
-      <span><i style="background:var(--grey)"></i>⬜ Not fetched yet</span>
     </div>
     <div class="foot" style="margin-top:16px;text-align:left">
       How to read this: EPCC will get <b>followers, follower growth and post engagement on every connected platform</b>.
@@ -226,12 +225,12 @@ const AD=[
   ['Post engagement', {facebook:1,instagram:1,linkedin:'a',snapchat:'b',x:'b',tiktok:'b'}],
   ['Reach / impressions', {facebook:'x',instagram:1,linkedin:'a',snapchat:'b',x:'p',tiktok:'b'}],
   ['Reactions by type', {facebook:1,instagram:'x',linkedin:'a',snapchat:'x',x:'x',tiktok:'x'}],
-  ['Video views / watch time', {facebook:1,instagram:1,linkedin:'a',snapchat:'b',x:0,tiktok:'b'}],
-  ['Clicks (link / profile)', {facebook:1,instagram:1,linkedin:'a',snapchat:'b',x:'p',tiktok:0}],
+  ['Video views / watch time', {facebook:1,instagram:1,linkedin:'a',snapchat:'b',x:'x',tiktok:'b'}],
+  ['Clicks (link / profile)', {facebook:1,instagram:1,linkedin:'a',snapchat:'b',x:'p',tiktok:'x'}],
   ['Audience demographics', {facebook:'x',instagram:1,linkedin:'a',snapchat:'b',x:'x',tiktok:'x'}],
 ];
-const M={1:'✅','a':'🔒','b':'🟡','x':'⛔','p':'💲',0:'⬜'};
-const MT={1:'Available & wired — flows into EPCC dashboards now','a':'Built — needs LinkedIn Community Management API approval','b':'Built — lights up once the platform approves API access','x':'Not available — platform does not expose this','p':'Available — needs a paid API tier',0:'Not fetched yet'};
+const M={1:'✅','a':'🔒','b':'🟡','x':'⛔','p':'💲'};
+const MT={1:'Available & wired — flows into EPCC dashboards now','a':'Built — needs LinkedIn Community Management API approval','b':'Built — lights up once the platform approves API access','x':'Not available — platform does not expose this','p':'Available — needs a paid API tier'};
 // Real colour per state so each cell reads at a glance (bg tint + text/label colour).
 const CLR={
   1:{bg:'#E6F7F0',fg:'#0a7a5c',t:'Wired'},
@@ -239,7 +238,6 @@ const CLR={
   'b':{bg:'#FEF4E2',fg:'#B7791F',t:'Approval'},
   'x':{bg:'#FCE9E7',fg:'#B23127',t:'N/A'},
   'p':{bg:'#E6EFFB',fg:'#025FCC',t:'Paid'},
-  0:{bg:'#F1F3F7',fg:'#8A97A8',t:'—'},
 };
 amatrix.innerHTML=`<thead><tr><th>Data type</th>${C.map(c=>`<th>${c.name.split(' ')[0]}</th>`).join('')}</tr></thead><tbody>${AD.map(([l,row])=>`<tr><td>${l}</td>${C.map(c=>{const k=row[c.key],cl=CLR[k];return `<td class="acell" style="background:${cl.bg};color:${cl.fg}" title="${MT[k]}"><span class="ci">${M[k]}</span><span class="cl">${cl.t}</span></td>`;}).join('')}</tr>`).join('')}</tbody>`;
 </script>
