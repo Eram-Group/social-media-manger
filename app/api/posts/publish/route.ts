@@ -42,6 +42,9 @@ export async function POST(req: NextRequest) {
       input.message = body?.message;
       input.format = body?.format;
       input.imageUrl = body?.imageUrl;
+      if (Array.isArray(body?.imageUrls) && body.imageUrls.length > 0) {
+        input.imageUrls = body.imageUrls as string[];
+      }
       input.videoUrl = body?.videoUrl;
       input.link = body?.link;
       input.scheduledPublishTime = body?.scheduledPublishTime;

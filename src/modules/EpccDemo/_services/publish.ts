@@ -4,7 +4,7 @@
 import { IPost, IPostRemoteRef } from '@/mock-server/posts';
 import { TPlatformId } from '@/mock-server/platforms';
 
-const SUPPORTED: TPlatformId[] = ['facebook', 'instagram'];
+const SUPPORTED: TPlatformId[] = ['facebook', 'instagram', 'linkedin'];
 
 export interface PublishOutcome {
   platform: TPlatformId;
@@ -68,6 +68,15 @@ export async function publishPost(post: IPost, scheduledPublishTime?: number): P
 
   const imageUrl = await toPublic(firstImage(post));
   const videoUrl = await toPublic(post.video);
+
+  // Resolve full media array for LinkedIn multi-image (single-image and video stay
+  // on their own paths; imageUrls is only sent to LinkedIn).
+  const resolvedImageUrls: string[] = [];
+  for (const m of post.media ?? []) {
+    const pub = await toPublic(m);
+    if (pub) resolvedImageUrls.push(pub);
+  }
+
   const outcomes: PublishOutcome[] = [];
 
   for (const platform of targets) {
@@ -83,6 +92,9 @@ export async function publishPost(post: IPost, scheduledPublishTime?: number): P
         body: JSON.stringify({
           platform, accountId: acct.accountId, message: post.content, format: post.format,
           imageUrl, videoUrl, scheduledPublishTime,
+          // LinkedIn: pass full image array for multi-image support; connector
+          // uses imageUrls when present (falls back to imageUrl for single image).
+          ...(platform === 'linkedin' && resolvedImageUrls.length > 0 && { imageUrls: resolvedImageUrls }),
         }),
       });
       const j = await res.json();
