@@ -122,6 +122,63 @@ async function listAdminOrgs(token: string): Promise<{ id: string; name: string;
   return out;
 }
 
+// ── Asset upload helpers ─────────────────────────────────────────────────────
+
+export async function fetchBytes(url: string): Promise<Uint8Array> {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`Failed to fetch media ${url}: ${res.status}`);
+  return new Uint8Array(await res.arrayBuffer());
+}
+
+// Initialize → PUT bytes → return the image URN to reference in a post.
+export async function uploadImage(account: ConnectedAccount, bytes: Uint8Array): Promise<string> {
+  const init = await liPost<{ value: { uploadUrl: string; image: string } }>(
+    account.accessToken,
+    '/images?action=initializeUpload',
+    { initializeUploadRequest: { owner: account.accountId } },
+  );
+  const { uploadUrl, image } = init.data.value;
+  const put = await fetch(uploadUrl, {
+    method: 'PUT',
+    headers: { Authorization: `Bearer ${account.accessToken}` },
+    body: bytes.buffer as ArrayBuffer,
+  });
+  if (!put.ok) throw new Error(`LinkedIn image upload failed: ${put.status} ${await put.text()}`);
+  return image;
+}
+
+// Initialize (single-part) → PUT bytes → finalize → poll until AVAILABLE.
+export async function uploadVideo(account: ConnectedAccount, bytes: Uint8Array): Promise<string> {
+  const init = await liPost<{ value: { uploadInstructions: { uploadUrl: string }[]; video: string } }>(
+    account.accessToken,
+    '/videos?action=initializeUpload',
+    { initializeUploadRequest: { owner: account.accountId, fileSizeBytes: bytes.byteLength, uploadCaptions: false, uploadThumbnail: false } },
+  );
+  const { uploadInstructions, video } = init.data.value;
+  const etags: string[] = [];
+  for (const part of uploadInstructions) {
+    const put = await fetch(part.uploadUrl, {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${account.accessToken}` },
+      body: bytes.buffer as ArrayBuffer,
+    });
+    if (!put.ok) throw new Error(`LinkedIn video upload failed: ${put.status} ${await put.text()}`);
+    const etag = put.headers.get('etag');
+    if (etag) etags.push(etag);
+  }
+  await liPost(account.accessToken, '/videos?action=finalizeUpload', {
+    finalizeUploadRequest: { video, uploadToken: '', uploadedPartIds: etags },
+  });
+  // Poll until processed (bounded — like the IG container poll).
+  for (let i = 0; i < 30; i++) {
+    const st = await liGet<{ status?: string }>(account.accessToken, `/videos/${encodeURIComponent(video)}`);
+    if (st.status === 'AVAILABLE') return video;
+    if (st.status === 'PROCESSING_FAILED') throw new Error('LinkedIn failed to process the video.');
+    await new Promise((r) => setTimeout(r, 3000));
+  }
+  throw new Error('LinkedIn video processing timed out.');
+}
+
 // ── Connector ────────────────────────────────────────────────────────────────
 export const linkedinConnector: SocialConnector = {
   id: 'linkedin',
@@ -151,7 +208,7 @@ export const linkedinConnector: SocialConnector = {
       tokenExpiresAt: now + t.expires_in,
       meta: {
         refreshToken: t.refresh_token,
-        refreshTokenExpiresAt: t.refresh_token_expires_in ? now + t.refresh_token_expires_in : null,
+        refreshTokenExpiresAt: t.refresh_token_expires_in ? now + t.refresh_token_expires_in : undefined,
         vanityName: o.vanityName,
       },
     }));

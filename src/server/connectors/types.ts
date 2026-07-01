@@ -25,6 +25,7 @@ export interface PublishInput {
   message?: string;             // caption / text body
   format?: TPublishFormat;      // how to publish it (feed post, reel, story, video)
   imageUrl?: string;            // public URL of an image to attach
+  imageUrls?: string[];          // multiple public image URLs (multi-image post)
   imageBlob?: Blob;             // raw image bytes (uploaded directly, no public URL needed)
   videoUrl?: string;            // public URL of a video
   videoBlob?: Blob;             // raw video bytes (uploaded directly)
