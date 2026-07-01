@@ -26,6 +26,11 @@ export async function snapPost<T>(token: string, path: string, body: unknown, js
   return res.json() as Promise<T>;
 }
 
+export async function snapDelete(token: string, path: string): Promise<void> {
+  const res = await fetch(`${SNAP_API}/${SNAP_API_VERSION}${path}`, { method: 'DELETE', headers: authHeaders(token) });
+  if (!res.ok && res.status !== 204) throw new Error(`Snapchat DELETE ${path} failed: ${res.status} ${await res.text()}`);
+}
+
 // ── OAuth ────────────────────────────────────────────────────────────────────
 interface ITokenResponse { access_token: string; expires_in: number; refresh_token?: string; }
 
@@ -162,5 +167,10 @@ export const snapchatConnector: SocialConnector = {
     );
     const contentId = created.content?.[0]?.id ?? '';
     return { remoteId: contentId, raw: created };
+  },
+
+  async deletePost(account: ConnectedAccount, remoteId: string): Promise<void> {
+    account = await ensureFreshToken(account);
+    await snapDelete(account.accessToken, `/content/${encodeURIComponent(remoteId)}`); // VERIFY path
   },
 };
