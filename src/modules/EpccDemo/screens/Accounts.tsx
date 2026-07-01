@@ -84,7 +84,7 @@ export default function Accounts() {
         { label: 'Avg. comments', value: formatFollowers(g?.total_avg_comments ?? 0) },
       ];
     }
-    const pm = (filter === 'facebook' ? metrics?.facebook : metrics?.instagram)?.[0];
+    const pm = (filter === 'linkedin' ? metrics?.linkedin : filter === 'facebook' ? metrics?.facebook : metrics?.instagram)?.[0];
     const cards = [
       { label: 'Followers', value: pm ? formatFollowers(pm.followers_count ?? 0) : '—' },
       { label: 'Engagement rate', value: pm ? `${pm.engagement_rate_percentage ?? 0}%` : '—' },
