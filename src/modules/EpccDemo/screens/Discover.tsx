@@ -239,20 +239,22 @@ export default function Discover() {
 
       {/* ── Search by hashtag ───────────────────────────────────────────── */}
       <DemoCard className="p-5">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch">
+        <div className="flex flex-col gap-3">
           <Input
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') submit(); }}
             leftIcon={<Search size={16} className="text-neutral-400" />}
             placeholder="Search hashtags — e.g. Dammam, Vision2030, SaudiBusiness"
-            className="w-full flex-1" />
-          <Button variant="primary" size="medium" onClick={submit} loading={loading}
-            leftIcon={loading ? undefined : <Search size={16} />} className="w-full shrink-0 sm:w-auto sm:px-8">
-            Search
-          </Button>
+            className="w-full" />
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-xs text-neutral-500">Tip: search several hashtags at once — separate them with a comma or space.</p>
+            <Button variant="primary" size="medium" onClick={submit} loading={loading}
+              leftIcon={loading ? undefined : <Search size={16} />} className="w-full sm:w-auto sm:px-8">
+              Search
+            </Button>
+          </div>
         </div>
-        <p className="mt-2 text-xs text-neutral-500">Tip: search several hashtags at once — separate them with a comma or space.</p>
 
         {tags.length > 0 && (
           <div className="mt-4 flex flex-wrap items-center gap-2">
