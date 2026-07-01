@@ -65,3 +65,16 @@ export function assertTiktokConfigured(): void {
     );
   }
 }
+
+export const X = {
+  clientId: process.env.X_CLIENT_ID || '',
+  clientSecret: process.env.X_CLIENT_SECRET || '',
+};
+
+export function assertXConfigured(): void {
+  if (!X.clientId || !X.clientSecret) {
+    throw new Error(
+      'X (Twitter) is not configured. Set X_CLIENT_ID and X_CLIENT_SECRET in your .env / .env.local.',
+    );
+  }
+}

@@ -26,13 +26,17 @@ export async function GET(req: NextRequest, { params }: { params: { platform: st
 
   const accountsUrl = (qs: string) => NextResponse.redirect(`${APP_BASE_URL}/epcc-demo/accounts?${qs}`);
 
+  // PKCE (X): the verifier cookied at the start of the flow, handed to exchangeCode.
+  const codeVerifier = req.cookies.get(`oauth_verifier_${platform}`)?.value;
+
   try {
-    const accounts = await getConnector(platform).exchangeCode(code);
+    const accounts = await getConnector(platform).exchangeCode(code, codeVerifier);
     if (!accounts.length) {
       const reason = platform === 'instagram' ? 'no_ig_account'
         : platform === 'linkedin' ? 'no_orgs'
         : platform === 'snapchat' ? 'no_profiles'
         : platform === 'tiktok' ? 'no_tiktok_account'
+        : platform === 'x' ? 'no_x_account'
         : 'no_pages';
       return accountsUrl(`error=${reason}&platform=${platform}`);
     }

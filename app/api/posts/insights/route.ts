@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { findAccount } from '@/server/store';
 import { graphGet } from '@/server/connectors/meta';
+import { getConnector } from '@/server/connectors/registry';
 
 // GET /api/posts/insights?platform=facebook&accountId=...&remoteId=...
 // Returns real engagement for a published post (likes/comments/shares, and
@@ -143,6 +144,13 @@ export async function GET(req: NextRequest) {
         metrics: {},
         note: 'LinkedIn does not provide per-post analytics via its API for this post type.',
       });
+    }
+
+    // X exposes per-tweet public_metrics (likes/retweets/replies/impressions).
+    if (platform === 'x') {
+      const connector = getConnector(platform);
+      const metrics = connector.getMetrics ? await connector.getMetrics(account, remoteId) : {};
+      return NextResponse.json({ ok: true, platform, metrics });
     }
 
     return NextResponse.json({ error: `Insights not supported for ${platform}` }, { status: 400 });

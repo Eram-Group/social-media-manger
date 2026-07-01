@@ -45,11 +45,19 @@ export interface SocialConnector {
   // Validate this connector's required env config; throws a user-facing error if missing.
   assertConfigured?(): void;
 
-  // 1. OAuth — where to send the user to authorize.
-  getAuthUrl(state: string): string;
+  // When true, the generic connect route runs the OAuth 2.0 PKCE extension:
+  // it generates a `code_verifier`, passes the derived `code_challenge` (S256)
+  // to getAuthUrl, cookies the verifier, and hands it back to exchangeCode.
+  // Other connectors leave this unset and ignore the extra args (backward-compatible).
+  usesPkce?: boolean;
+
+  // 1. OAuth — where to send the user to authorize. `codeChallenge` is only
+  // supplied for PKCE connectors (usesPkce).
+  getAuthUrl(state: string, codeChallenge?: string): string;
   // Exchange the OAuth `code` from the callback for one or more connectable
   // accounts (a Facebook login can expose several Pages / IG accounts).
-  exchangeCode(code: string): Promise<ConnectedAccount[]>;
+  // `codeVerifier` is only supplied for PKCE connectors (usesPkce).
+  exchangeCode(code: string, codeVerifier?: string): Promise<ConnectedAccount[]>;
 
   // 2. Publishing.
   publish(account: ConnectedAccount, input: PublishInput): Promise<PublishResult>;

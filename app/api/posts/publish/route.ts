@@ -70,9 +70,9 @@ export async function POST(req: NextRequest) {
   try {
     const result = await getConnector(platform).publish(account, input);
     // Persist a record for platforms we can't read back later (LinkedIn member
-    // posts, Snapchat Stories) so they stay in the Posts list after a reload.
-    // FB/IG are re-fetched from the platform, so they don't need this.
-    if ((platform === 'linkedin' || platform === 'snapchat') && result.remoteId) {
+    // posts, Snapchat Stories, X tweets) so they stay in the Posts list after a
+    // reload. FB/IG are re-fetched from the platform, so they don't need this.
+    if ((platform === 'linkedin' || platform === 'snapchat' || platform === 'x') && result.remoteId) {
       await savePublishedPost({
         platform,
         accountId,

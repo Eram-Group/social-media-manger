@@ -72,7 +72,7 @@
       <h1>Social Connectors — Tracker &amp; Analyzer</h1>
       <div class="sub">Eastern Province Chamber of Commerce · status + analytics data per platform</div>
     </div>
-    <span class="badge"><span class="dot" style="background:var(--primary)"></span> updated 2026-07-01 · branch <code>dev</code></span>
+    <span class="badge"><span class="dot" style="background:var(--primary)"></span> updated 2026-07-02 · branch <code>feat/tiktok-connector</code></span>
   </header>
 
   <div class="tabs">
@@ -129,10 +129,10 @@ const C = [
    caps:{connect:1,publish:1,delete:1,readback:1,analytics:1},
    needs:'Code done; not live. Needs <b>Snap Business account + Public Profile + Marketing-API approval</b>.',
    metrics:['views','impressions','screenshots','swipes','shares','subscribers'], demo:'soon', demoNote:'Age, gender, region (public profiles with enough followers)'},
-  {key:'x', name:'X (Twitter)', api:'X API v2 (PKCE)', color:'#0F1419', glyph:'𝕏', state:'todo',
-   caps:{connect:0,publish:0,delete:0,readback:0,analytics:0},
-   needs:'Not built (design ready). Go-live needs the <b>paid Basic tier (~$200/mo)</b>.',
-   metrics:['likes','retweets','replies','quotes','impressions','link clicks*','profile clicks*','followers'], demo:false, demoNote:'No follower demographics (X API limit). *organic metrics need user context + paid tier'},
+  {key:'x', name:'X (Twitter)', api:'X API v2 (PKCE)', color:'#0F1419', glyph:'𝕏', state:'built',
+   caps:{connect:1,publish:1,delete:1,readback:1,analytics:1},
+   needs:'Code done (OAuth2 + PKCE, refresh, publish text/up-to-4 images/1 video, delete, per-tweet metrics + followers). Not live — go-live needs the <b>paid Basic tier (~$200/mo)</b>.',
+   metrics:['likes','retweets','replies','impressions','followers'], demo:false, demoNote:'No follower demographics (X API limit). Per-tweet metrics need user context + paid tier'},
   {key:'tiktok', name:'TikTok', api:'Content Posting API', color:'#010101', glyph:'♪', state:'todo',
    caps:{connect:0,publish:0,delete:0,readback:0,analytics:0},
    needs:'Not built. Go-live needs a <b>content-posting audit (~2 wks)</b>.',
@@ -174,9 +174,9 @@ acards.innerHTML=C.map(c=>{
 
 // analytics availability matrix
 const AD=[
-  ['Followers / subscribers', {facebook:1,instagram:1,linkedin:'a',snapchat:'b',x:0,tiktok:0}],
-  ['Follower growth over time', {facebook:1,instagram:1,linkedin:'a',snapchat:'b',x:0,tiktok:0}],
-  ['Post engagement', {facebook:1,instagram:1,linkedin:'a',snapchat:'b',x:0,tiktok:0}],
+  ['Followers / subscribers', {facebook:1,instagram:1,linkedin:'a',snapchat:'b',x:'b',tiktok:0}],
+  ['Follower growth over time', {facebook:1,instagram:1,linkedin:'a',snapchat:'b',x:'b',tiktok:0}],
+  ['Post engagement', {facebook:1,instagram:1,linkedin:'a',snapchat:'b',x:'b',tiktok:0}],
   ['Reach / impressions', {facebook:'x',instagram:1,linkedin:'a',snapchat:'b',x:'p',tiktok:0}],
   ['Reactions by type', {facebook:1,instagram:'x',linkedin:'a',snapchat:'x',x:'x',tiktok:'x'}],
   ['Video views / watch time', {facebook:1,instagram:1,linkedin:'a',snapchat:'b',x:0,tiktok:0}],
