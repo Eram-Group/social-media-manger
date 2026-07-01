@@ -10,7 +10,7 @@ import { Backdrop, ModalPanel } from '../_components/motion';
 import { DemoCard, SectionTitle, PlatformChip, StatCard, StatCardSkeleton, ListRowSkeleton, formatFollowers } from '../_components/ui';
 import { PLATFORMS, getPlatform, TPlatformId } from '@/mock-server/platforms';
 
-const CONNECTABLE: TPlatformId[] = ['facebook', 'instagram', 'linkedin'];
+const CONNECTABLE: TPlatformId[] = ['facebook', 'instagram', 'linkedin', 'snapchat'];
 
 interface ConnectedAccount {
   platform: TPlatformId;
