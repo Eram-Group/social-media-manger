@@ -5,7 +5,11 @@ import {
   Hash, RefreshCw, ExternalLink, AlertCircle, X, Heart, MessageCircle,
   Sparkles, Film, Images, Search, ArrowRight,
 } from 'lucide-react';
-import { DemoCard, StatCard, formatFollowers } from '../_components/ui';
+import {
+  DemoCard, SectionTitle, StatCard, StatCardSkeleton, Skeleton, formatFollowers,
+} from '../_components/ui';
+import { Input } from '@/shadecn/components/ui/input';
+import { Button } from '@UI/index';
 import { useApi } from '../_services/useApi';
 
 interface HashtagMedia {
@@ -142,9 +146,9 @@ function FeaturedCard({ tag, label, onSearch }: { tag: string; label: string; on
   return (
     <button
       onClick={onSearch}
-      className="group flex flex-col gap-3 rounded-2xl border border-neutral-200 bg-white p-5 text-left shadow-1 transition hover:-translate-y-0.5 hover:border-primary-300 hover:shadow-3">
-      <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-primary-100 to-secondary-200 text-primary-800">
-        <Hash size={22} />
+      className="group flex flex-col gap-3 rounded-xl border border-neutral-200 bg-white p-5 text-left shadow-7 transition hover:border-primary-300 hover:shadow-4">
+      <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-secondary-200 text-primary-900">
+        <Hash size={18} />
       </span>
       <div>
         <h3 className="font-Sora text-base font-semibold text-text-dark">#{tag}</h3>
@@ -155,6 +159,29 @@ function FeaturedCard({ tag, label, onSearch }: { tag: string; label: string; on
         <ArrowRight size={15} className="transition-transform group-hover:translate-x-0.5" />
       </span>
     </button>
+  );
+}
+
+// Loading placeholder that mirrors the results layout so the slow hashtag fetch
+// feels responsive (a stat row + a couple of media-grid skeletons).
+function ResultsSkeleton() {
+  return (
+    <>
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, i) => <StatCardSkeleton key={i} />)}
+      </div>
+      {Array.from({ length: 2 }).map((_, b) => (
+        <DemoCard key={b}>
+          <div className="flex items-center gap-2">
+            <Skeleton className="h-9 w-9 rounded-lg" />
+            <div><Skeleton className="h-4 w-32" /><Skeleton className="mt-1.5 h-3 w-44" /></div>
+          </div>
+          <div className="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-6">
+            {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="aspect-square rounded-lg" />)}
+          </div>
+        </DemoCard>
+      ))}
+    </>
   );
 }
 
@@ -187,68 +214,59 @@ export default function Discover() {
 
   return (
     <div className="flex flex-col gap-6">
-      {/* ── Hero search ─────────────────────────────────────────────────── */}
-      <DemoCard className="relative overflow-hidden bg-gradient-to-br from-primary-800 to-primary-900 py-9 text-white">
-        <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/10 blur-2xl" />
-        <div className="pointer-events-none absolute -bottom-16 -left-8 h-44 w-44 rounded-full bg-secondary-200/20 blur-2xl" />
-        <div className="relative mx-auto flex max-w-2xl flex-col items-center gap-4 text-center">
-          <span className="flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-xs font-medium">
-            <Sparkles size={13} /> Content Discovery
-          </span>
-          <h1 className="font-Sora text-2xl font-bold tracking-tight sm:text-[28px]">Search Instagram by hashtag</h1>
-          <p className="max-w-lg text-sm text-white/80">
-            Explore the top &amp; most-recent public posts for any hashtag — real Instagram data, no competitor access needed.
-          </p>
+      {/* ── Header ──────────────────────────────────────────────────────── */}
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <SectionTitle
+          title="Content Discovery"
+          subtitle="Search Instagram by hashtag — top & recent public posts, no competitor access needed." />
+        {tags.length > 0 && (
+          <Button variant="outline" size="medium" onClick={() => refresh()} disable={loading}
+            leftIcon={<RefreshCw size={15} className={loading ? 'animate-spin' : ''} />}
+            className="w-auto">
+            Refresh
+          </Button>
+        )}
+      </div>
 
-          <div className="mt-1 flex w-full flex-col gap-2 sm:flex-row">
-            <div className="flex flex-1 items-center gap-2 rounded-xl bg-white px-4 py-3 text-neutral-800 shadow-3">
-              <Search size={18} className="text-neutral-400" />
-              <input
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') submit(); }}
-                placeholder="Search a hashtag, e.g. SaudiBusiness"
-                className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-neutral-400" />
-            </div>
-            <button onClick={submit}
-              className="flex items-center justify-center gap-1.5 rounded-xl bg-accent-800 px-5 py-3 text-sm font-semibold text-primary-900 transition hover:brightness-95">
-              <Search size={16} /> Search
-            </button>
-          </div>
+      {/* ── Search by hashtag ───────────────────────────────────────────── */}
+      <DemoCard className="p-5">
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <Input
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') submit(); }}
+            leftIcon={<Search size={16} className="text-neutral-400" />}
+            placeholder="Search a hashtag, e.g. SaudiBusiness"
+            className="flex-1" />
+          <Button variant="primary" size="medium" onClick={submit} loading={loading}
+            leftIcon={loading ? undefined : <Search size={16} />} className="w-full sm:w-auto sm:px-6">
+            Search
+          </Button>
+        </div>
 
-          {/* Quick suggestions */}
-          <div className="flex flex-wrap items-center justify-center gap-2">
-            <span className="text-xs text-white/60">Try:</span>
-            {FEATURED.slice(0, 5).map((f) => (
-              <button key={f.tag} onClick={() => searchTag(f.tag)}
-                className="rounded-full border border-white/25 bg-white/5 px-2.5 py-1 text-xs font-medium text-white/90 transition hover:bg-white/15">
-                #{f.tag}
-              </button>
+        {tags.length > 0 && (
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            <span className="text-sm font-medium text-neutral-600">Your searches:</span>
+            {tags.map((t) => (
+              <span key={t} className="flex items-center gap-1.5 rounded-full bg-secondary-200 px-2.5 py-1 text-xs font-medium text-primary-900">
+                #{t}
+                <button onClick={() => removeTag(t)} className="text-primary-900/60 hover:text-primary-900"><X size={12} /></button>
+              </span>
             ))}
           </div>
-        </div>
+        )}
+
+        {loading && (
+          <p className="mt-3 flex items-center gap-2 text-xs text-neutral-500">
+            <RefreshCw size={13} className="animate-spin" />
+            Searching Instagram… hashtag results can take a few seconds (Meta rate-limits them).
+          </p>
+        )}
       </DemoCard>
 
-      {/* ── Active searches ─────────────────────────────────────────────── */}
-      {tags.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-sm font-medium text-neutral-600">Your searches:</span>
-          {tags.map((t) => (
-            <span key={t} className="flex items-center gap-1.5 rounded-full bg-secondary-200 px-2.5 py-1 text-xs font-medium text-primary-900">
-              #{t}
-              <button onClick={() => removeTag(t)} className="text-primary-900/60 hover:text-primary-900"><X size={12} /></button>
-            </span>
-          ))}
-          <button onClick={() => refresh()} disabled={loading}
-            className="ml-auto flex items-center gap-2 rounded-lg border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-800 hover:bg-neutral-100 disabled:opacity-50">
-            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} /> Refresh
-          </button>
-        </div>
-      )}
-
       {/* ── Body ────────────────────────────────────────────────────────── */}
-      {loading && !raw ? (
-        <DemoCard className="py-12 text-center text-sm text-neutral-500">Searching Instagram hashtags…</DemoCard>
+      {loading ? (
+        <ResultsSkeleton />
       ) : hasResults ? (
         <>
           {/* Summary */}
