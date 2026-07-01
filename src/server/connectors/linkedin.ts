@@ -32,6 +32,11 @@ async function liPost<T>(token: string, path: string, body: unknown): Promise<{ 
   return { data: (text ? JSON.parse(text) : {}) as T, restliId };
 }
 
+async function liDelete(token: string, path: string): Promise<void> {
+  const res = await fetch(`${LI_REST}${path}`, { method: 'DELETE', headers: headers(token) });
+  if (!res.ok && res.status !== 204) throw new Error(`LinkedIn DELETE ${path} failed: ${res.status} ${await res.text()}`);
+}
+
 // ── OAuth ────────────────────────────────────────────────────────────────────
 interface ITokenResponse {
   access_token: string;
@@ -257,5 +262,10 @@ export const linkedinConnector: SocialConnector = {
       url: postUrn ? `https://www.linkedin.com/feed/update/${postUrn}` : undefined,
       raw: data,
     };
+  },
+
+  async deletePost(account: ConnectedAccount, remoteId: string): Promise<void> {
+    account = await ensureFreshToken(account);
+    await liDelete(account.accessToken, `/posts/${encodeURIComponent(remoteId)}`);
   },
 };
