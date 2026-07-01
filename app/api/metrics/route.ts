@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { listAccounts } from '@/server/store';
 import { graphGet } from '@/server/connectors/meta';
+import { getOrgStats } from '@/server/connectors/linkedin';
 import { getCached } from '@/server/cache';
 
 // GET /api/metrics — derived audience/performance metrics per connected account,
@@ -39,6 +40,17 @@ async function facebookMetrics(acc: any) {
     m.avg_shares = Math.round(avg(shares));
     const totalEng = likes.reduce((s, n) => s + n, 0) + comments.reduce((s, n) => s + n, 0) + shares.reduce((s, n) => s + n, 0);
     m.engagement_rate_percentage = m.followers_count && posts.length ? pct((totalEng / posts.length / m.followers_count) * 100) : 0;
+  } catch (e) {
+    m.error = (e as Error).message;
+  }
+  return m;
+}
+
+async function linkedinMetrics(acc: any) {
+  const m: any = { platform: 'linkedin', name: acc.name, followers_count: acc.followers ?? 0 };
+  try {
+    const stats = await getOrgStats(acc);
+    if (typeof stats.followers === 'number') m.followers_count = stats.followers;
   } catch (e) {
     m.error = (e as Error).message;
   }
@@ -97,17 +109,19 @@ async function computeMetrics() {
   const accounts = await listAccounts();
   const facebook = [];
   const instagram = [];
+  const linkedin = [];
   for (const acc of accounts) {
     if (acc.platform === 'facebook') facebook.push(await facebookMetrics(acc));
     if (acc.platform === 'instagram') instagram.push(await instagramMetrics(acc));
+    if (acc.platform === 'linkedin') linkedin.push(await linkedinMetrics(acc));
   }
-  const all = [...facebook, ...instagram];
+  const all = [...facebook, ...instagram, ...linkedin];
   const general = {
     general_follower_count: all.reduce((s, m) => s + (m.followers_count ?? 0), 0),
     connected_accounts: all.length,
-    avg_engagement_rate_percentage: pct(avg(all.map((m) => m.engagement_rate_percentage ?? 0))),
+    avg_engagement_rate_percentage: pct(avg(all.map((m) => m.engagement_rate_percentage).filter((v): v is number => v != null))),
     total_avg_likes: all.reduce((s, m) => s + (m.avg_likes ?? 0), 0),
     total_avg_comments: all.reduce((s, m) => s + (m.avg_comments ?? 0), 0),
   };
-  return { general, facebook, instagram };
+  return { general, facebook, instagram, linkedin };
 }

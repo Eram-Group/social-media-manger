@@ -2,7 +2,7 @@
 // Permissions required (granted at OAuth): pages_show_list, pages_read_engagement,
 // pages_manage_posts. While the Meta app is in Development Mode you can publish to
 // Pages you administer without App Review.
-import { redirectUri } from '@/server/env';
+import { redirectUri, assertMetaConfigured } from '@/server/env';
 import { ConnectedAccount, PublishInput, PublishResult, SocialConnector } from './types';
 import { buildAuthUrl, codeToUserToken, discoverPages, graphPost, graphPostForm, graphGet, graphDelete, ruploadBytes } from './meta';
 
@@ -61,6 +61,7 @@ const SCOPES = ['pages_show_list', 'pages_read_engagement', 'pages_read_user_con
 
 export const facebookConnector: SocialConnector = {
   id: 'facebook',
+  assertConfigured: assertMetaConfigured,
 
   getAuthUrl(state: string): string {
     return buildAuthUrl(redirectUri('facebook'), SCOPES, state);

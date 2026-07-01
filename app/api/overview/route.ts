@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { listAccounts } from '@/server/store';
 import { graphGet } from '@/server/connectors/meta';
+import { getOrgStats } from '@/server/connectors/linkedin';
 import { getCached } from '@/server/cache';
 
 // GET /api/overview — the richest real snapshot the Graph API still allows:
@@ -143,6 +144,18 @@ async function facebookOverview(acc: any, points: PostPoint[], since: number, un
   return view;
 }
 
+async function linkedinOverview(acc: any) {
+  const view: any = {
+    accountId: acc.accountId, name: acc.name, platform: 'linkedin',
+    followers: acc.followers ?? null,
+  };
+  try {
+    const stats = await getOrgStats(acc);
+    if (typeof stats.followers === 'number') view.followers = stats.followers;
+  } catch (e) { view.statsError = (e as Error).message; }
+  return view;
+}
+
 async function instagramOverview(acc: any, points: PostPoint[], since: number, until: number) {
   const token = acc.accessToken;
   const view: any = { accountId: acc.accountId, name: acc.name, platform: 'instagram', followers: acc.followers ?? null, stats: {} };
@@ -179,12 +192,14 @@ async function computeOverview(days: number) {
   const points: PostPoint[] = [];
   const facebook = [];
   const instagram = [];
+  const linkedin = [];
   for (const acc of accounts) {
     if (acc.platform === 'facebook') facebook.push(await facebookOverview(acc, points, since, until));
     if (acc.platform === 'instagram') instagram.push(await instagramOverview(acc, points, since, until));
+    if (acc.platform === 'linkedin') linkedin.push(await linkedinOverview(acc));
   }
-  if (!facebook.length && !instagram.length) {
-    return { ok: true, available: false, facebook: [], instagram: [], bestTimes: null };
+  if (!facebook.length && !instagram.length && !linkedin.length) {
+    return { ok: true, available: false, facebook: [], instagram: [], linkedin: [], bestTimes: null };
   }
-  return { ok: true, available: true, facebook, instagram, bestTimes: buildBestTimes(points) };
+  return { ok: true, available: true, facebook, instagram, linkedin, bestTimes: buildBestTimes(points) };
 }

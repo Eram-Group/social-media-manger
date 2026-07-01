@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getConnector, isSupported } from '@/server/connectors/registry';
 import { ConnectedAccount, PublishInput } from '@/server/connectors/types';
-import { findAccount } from '@/server/store';
+import { findAccount, savePublishedPost } from '@/server/store';
 import { invalidate } from '@/server/cache';
 
 // POST /api/posts/publish
@@ -42,6 +42,9 @@ export async function POST(req: NextRequest) {
       input.message = body?.message;
       input.format = body?.format;
       input.imageUrl = body?.imageUrl;
+      if (Array.isArray(body?.imageUrls) && body.imageUrls.length > 0) {
+        input.imageUrls = body.imageUrls as string[];
+      }
       input.videoUrl = body?.videoUrl;
       input.link = body?.link;
       input.scheduledPublishTime = body?.scheduledPublishTime;
@@ -66,6 +69,22 @@ export async function POST(req: NextRequest) {
   const account: ConnectedAccount = { platform: platform as ConnectedAccount['platform'], accountId, accessToken: token, meta: stored?.meta };
   try {
     const result = await getConnector(platform).publish(account, input);
+    // Persist a record for platforms we can't read back later (LinkedIn member
+    // posts) so they stay in the Posts list after a reload. FB/IG are re-fetched
+    // from the platform, so they don't need this.
+    if (platform === 'linkedin' && result.remoteId) {
+      await savePublishedPost({
+        platform,
+        accountId,
+        name: stored?.name,
+        remoteId: result.remoteId,
+        url: result.url,
+        message: input.message,
+        media: input.imageUrls ?? (input.imageUrl ? [input.imageUrl] : undefined),
+        format: input.format,
+        createdAt: Math.floor(Date.now() / 1000),
+      });
+    }
     // New post — drop the cached list so it shows on next load.
     await invalidate('posts:list');
     return NextResponse.json({ ok: true, platform, result });

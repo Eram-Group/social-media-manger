@@ -29,7 +29,9 @@ export async function GET(req: NextRequest, { params }: { params: { platform: st
   try {
     const accounts = await getConnector(platform).exchangeCode(code);
     if (!accounts.length) {
-      const reason = platform === 'instagram' ? 'no_ig_account' : 'no_pages';
+      const reason = platform === 'instagram' ? 'no_ig_account'
+        : platform === 'linkedin' ? 'no_orgs'
+        : 'no_pages';
       return accountsUrl(`error=${reason}&platform=${platform}`);
     }
     const now = Math.floor(Date.now() / 1000);

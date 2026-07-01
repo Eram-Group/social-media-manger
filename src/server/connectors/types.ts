@@ -25,6 +25,7 @@ export interface PublishInput {
   message?: string;             // caption / text body
   format?: TPublishFormat;      // how to publish it (feed post, reel, story, video)
   imageUrl?: string;            // public URL of an image to attach
+  imageUrls?: string[];          // multiple public image URLs (multi-image post)
   imageBlob?: Blob;             // raw image bytes (uploaded directly, no public URL needed)
   videoUrl?: string;            // public URL of a video
   videoBlob?: Blob;             // raw video bytes (uploaded directly)
@@ -40,6 +41,9 @@ export interface PublishResult {
 
 export interface SocialConnector {
   id: TPlatformId;
+
+  // Validate this connector's required env config; throws a user-facing error if missing.
+  assertConfigured?(): void;
 
   // 1. OAuth — where to send the user to authorize.
   getAuthUrl(state: string): string;

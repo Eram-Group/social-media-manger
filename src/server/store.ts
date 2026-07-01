@@ -172,3 +172,84 @@ async function readHiddenFile(): Promise<string[]> {
     return [];
   }
 }
+
+// ---- Published-post ledger ----
+// Some platforms (e.g. LinkedIn member posts) cannot be read back via API, so a
+// post published through the app would vanish from the list on reload. We persist
+// a lightweight record of what we published so those posts stay visible.
+export interface PublishedPostRecord {
+  platform: string;
+  accountId: string;
+  name?: string;
+  remoteId: string;
+  url?: string;
+  message?: string;
+  media?: string[];
+  format?: string;
+  createdAt: number; // unix seconds
+}
+
+const PUBLISHED_FILE = path.join(DATA_DIR, 'published-posts.json');
+
+async function publishedSchema(db: any) {
+  await db`CREATE TABLE IF NOT EXISTS published_posts (
+    platform    text NOT NULL,
+    account_id  text NOT NULL,
+    remote_id   text NOT NULL,
+    name        text,
+    url         text,
+    message     text,
+    media       jsonb,
+    format      text,
+    created_at  bigint,
+    PRIMARY KEY (platform, remote_id)
+  )`;
+}
+
+const rowToPublished = (r: any): PublishedPostRecord => ({
+  platform: r.platform,
+  accountId: r.account_id,
+  name: r.name ?? undefined,
+  remoteId: r.remote_id,
+  url: r.url ?? undefined,
+  message: r.message ?? undefined,
+  media: r.media ?? undefined,
+  format: r.format ?? undefined,
+  createdAt: Number(r.created_at),
+});
+
+export async function savePublishedPost(rec: PublishedPostRecord): Promise<void> {
+  if (usingDb()) {
+    const db = await sql();
+    await publishedSchema(db);
+    await db`
+      INSERT INTO published_posts (platform, account_id, remote_id, name, url, message, media, format, created_at)
+      VALUES (${rec.platform}, ${rec.accountId}, ${rec.remoteId}, ${rec.name ?? null}, ${rec.url ?? null},
+              ${rec.message ?? null}, ${rec.media ? JSON.stringify(rec.media) : null}, ${rec.format ?? null}, ${rec.createdAt})
+      ON CONFLICT (platform, remote_id) DO NOTHING`;
+    return;
+  }
+  const cur = await readPublishedFile();
+  if (!cur.some((p) => p.platform === rec.platform && p.remoteId === rec.remoteId)) cur.unshift(rec);
+  await fs.mkdir(DATA_DIR, { recursive: true });
+  await fs.writeFile(PUBLISHED_FILE, JSON.stringify(cur, null, 2), 'utf8');
+}
+
+export async function listPublishedPosts(): Promise<PublishedPostRecord[]> {
+  if (usingDb()) {
+    const db = await sql();
+    await publishedSchema(db);
+    const rows = await db`SELECT * FROM published_posts ORDER BY created_at DESC`;
+    return (rows as any[]).map(rowToPublished);
+  }
+  return readPublishedFile();
+}
+
+async function readPublishedFile(): Promise<PublishedPostRecord[]> {
+  try {
+    const p = JSON.parse(await fs.readFile(PUBLISHED_FILE, 'utf8'));
+    return Array.isArray(p) ? p : [];
+  } catch {
+    return [];
+  }
+}
