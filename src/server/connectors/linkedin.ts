@@ -4,7 +4,7 @@ import {
 import { LINKEDIN, assertLinkedInConfigured, redirectUri } from '@/server/env';
 import {
   LI_REST, LI_OAUTH, LINKEDIN_VERSION, LINKEDIN_SCOPES,
-  LINKEDIN_IDENTITY_ONLY, LINKEDIN_IDENTITY_SCOPES,
+  LINKEDIN_IDENTITY_ONLY, LINKEDIN_IDENTITY_SCOPES, LINKEDIN_DRAFT,
 } from './linkedin.config';
 import { upsertAccounts } from '@/server/store';
 
@@ -281,7 +281,8 @@ export const linkedinConnector: SocialConnector = {
       author: account.accountId,
       commentary: input.message ?? '',
       visibility: 'PUBLIC',
-      lifecycleState: 'PUBLISHED',
+      // DRAFT (saved to LinkedIn drafts) when LINKEDIN_DRAFT=true, else PUBLISHED.
+      lifecycleState: LINKEDIN_DRAFT ? 'DRAFT' : 'PUBLISHED',
       distribution: { feedDistribution: 'MAIN_FEED', targetEntities: [], thirdPartyDistributionChannels: [] },
       ...(content ? { content } : {}),
     };

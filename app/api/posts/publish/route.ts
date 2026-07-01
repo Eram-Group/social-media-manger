@@ -66,7 +66,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'No access token found for this account. Connect it first.' }, { status: 400 });
   }
 
-  const account: ConnectedAccount = { platform: platform as ConnectedAccount['platform'], accountId, accessToken: token, meta: stored?.meta };
+  // Preserve the stored account's full shape (tokenExpiresAt, meta.refreshToken,
+  // name, …) so the connector's ensureFreshToken sees the real expiry instead of
+  // treating a valid token as expired. Only the access token may be overridden.
+  const account: ConnectedAccount = stored
+    ? { ...stored, accessToken: token }
+    : { platform: platform as ConnectedAccount['platform'], accountId, accessToken: token };
   try {
     const result = await getConnector(platform).publish(account, input);
     // Persist a record for platforms we can't read back later (LinkedIn member

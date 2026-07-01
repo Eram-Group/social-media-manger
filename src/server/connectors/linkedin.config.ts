@@ -28,3 +28,8 @@ export const LINKEDIN_IDENTITY_ONLY = process.env.LINKEDIN_IDENTITY_ONLY === 'tr
 // `w_member_social` (Share on LinkedIn) — add that product, then include it here.
 export const LINKEDIN_IDENTITY_SCOPES =
   process.env.LINKEDIN_IDENTITY_SCOPES || 'openid profile email w_member_social';
+
+// When LINKEDIN_DRAFT=true, posts are created as DRAFT (lifecycleState=DRAFT) —
+// saved to the author's LinkedIn drafts instead of published to the feed. Useful
+// for testing the flow without posting publicly. (Still requires w_member_social.)
+export const LINKEDIN_DRAFT = process.env.LINKEDIN_DRAFT === 'true';
