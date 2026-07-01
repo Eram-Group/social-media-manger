@@ -92,6 +92,28 @@ export async function listPublicProfiles(token: string): Promise<{ id: string; n
   return out;
 }
 
+// ── Media helpers ────────────────────────────────────────────────────────────
+async function fetchBytes(url: string): Promise<Uint8Array> {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`Failed to fetch media ${url}: ${res.status}`);
+  return new Uint8Array(await res.arrayBuffer());
+}
+
+// Register a media object, upload the bytes, return the media id. VERIFY paths.
+async function uploadMedia(account: ConnectedAccount, bytes: Uint8Array, kind: 'IMAGE' | 'VIDEO'): Promise<string> {
+  const orgId = (account.meta as Record<string, any>)?.organizationId;
+  const created = await snapPost<{ media: { id: string }[] }>(
+    account.accessToken, `/organizations/${orgId}/media`,
+    { media: [{ name: `epcc-${kind.toLowerCase()}`, type: kind }] },
+  );
+  const mediaId = created.media?.[0]?.id;
+  if (!mediaId) throw new Error('Snapchat media registration returned no id.');
+  const form = new FormData();
+  form.append('file', new Blob([bytes.buffer as ArrayBuffer]));
+  await snapPost(account.accessToken, `/media/${mediaId}/upload`, form, false);
+  return mediaId;
+}
+
 // ── Connector ────────────────────────────────────────────────────────────────
 export const snapchatConnector: SocialConnector = {
   id: 'snapchat',
@@ -119,7 +141,26 @@ export const snapchatConnector: SocialConnector = {
     }));
   },
 
-  async publish(_account: ConnectedAccount, _input: PublishInput): Promise<PublishResult> {
-    throw new Error('Snapchat publishing is not implemented yet.'); // Phase B, Task 4
+  async publish(account: ConnectedAccount, input: PublishInput): Promise<PublishResult> {
+    account = await ensureFreshToken(account);
+    const isVideo = Boolean(input.videoUrl || input.videoBlob);
+    const bytes = isVideo
+      ? (input.videoBlob ? new Uint8Array(await input.videoBlob.arrayBuffer()) : await fetchBytes(input.videoUrl!))
+      : (input.imageBlob ? new Uint8Array(await input.imageBlob.arrayBuffer())
+         : await fetchBytes((input.imageUrl ?? input.imageUrls?.[0])!));
+    const mediaId = await uploadMedia(account, bytes, isVideo ? 'VIDEO' : 'IMAGE');
+
+    // Map format -> Snap content type.
+    const type = input.format === 'story' ? 'STORY'
+      : (input.format === 'reel' || input.format === 'video') ? 'SPOTLIGHT'
+      : 'SAVED_STORY';
+
+    // VERIFY: content-create endpoint + payload per type.
+    const created = await snapPost<{ content: { id: string }[] }>(
+      account.accessToken, `/public_profiles/${account.accountId}/content`,
+      { content: [{ type, media_id: mediaId, caption: input.message ?? '' }] },
+    );
+    const contentId = created.content?.[0]?.id ?? '';
+    return { remoteId: contentId, raw: created };
   },
 };
