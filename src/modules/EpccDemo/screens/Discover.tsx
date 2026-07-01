@@ -198,13 +198,22 @@ export default function Discover() {
   const { data: raw, loading, refresh } = useApi<Discover>(url);
   const data = raw ?? { available: false, hashtags: [] };
 
-  const searchTag = (value: string) => {
-    const clean = value.replace(/^#/, '').trim();
-    if (!clean) return;
-    if (!tags.some((t) => t.toLowerCase() === clean.toLowerCase())) save([...tags, clean]);
+  // Accept several hashtags in one action — split on commas, whitespace or line
+  // breaks, strip leading '#', drop blanks/dupes, and add them all at once (the
+  // URL recomputes once → a single /api/discover call for the whole batch).
+  const addTags = (values: string[]) => {
+    const seen = new Set(tags.map((t) => t.toLowerCase()));
+    const next = [...tags];
+    for (const v of values) {
+      const clean = v.replace(/^#/, '').trim();
+      if (clean && !seen.has(clean.toLowerCase())) { seen.add(clean.toLowerCase()); next.push(clean); }
+    }
+    if (next.length !== tags.length) save(next);
     setInput('');
   };
-  const submit = () => searchTag(input);
+  const parseInput = (value: string) => value.split(/[,\n]+|\s+/).filter(Boolean);
+  const submit = () => addTags(parseInput(input));
+  const searchTag = (value: string) => addTags([value]);
   const removeTag = (t: string) => save(tags.filter((x) => x !== t));
 
   const totalEng = data.hashtags.reduce((s, h) => s + h.topEng, 0);
@@ -230,19 +239,20 @@ export default function Discover() {
 
       {/* ── Search by hashtag ───────────────────────────────────────────── */}
       <DemoCard className="p-5">
-        <div className="flex flex-col gap-2 sm:flex-row">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch">
           <Input
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') submit(); }}
             leftIcon={<Search size={16} className="text-neutral-400" />}
-            placeholder="Search a hashtag, e.g. SaudiBusiness"
-            className="flex-1" />
+            placeholder="Search hashtags — e.g. Dammam, Vision2030, SaudiBusiness"
+            className="w-full flex-1" />
           <Button variant="primary" size="medium" onClick={submit} loading={loading}
-            leftIcon={loading ? undefined : <Search size={16} />} className="w-full sm:w-auto sm:px-6">
+            leftIcon={loading ? undefined : <Search size={16} />} className="w-full shrink-0 sm:w-auto sm:px-8">
             Search
           </Button>
         </div>
+        <p className="mt-2 text-xs text-neutral-500">Tip: search several hashtags at once — separate them with a comma or space.</p>
 
         {tags.length > 0 && (
           <div className="mt-4 flex flex-wrap items-center gap-2">
