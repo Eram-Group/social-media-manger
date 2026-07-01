@@ -7,7 +7,7 @@
 // uses the Facebook-Login + Pages path. If your app is set up with the newer
 // "Instagram API with Instagram Login", set META_INSTAGRAM_SCOPES in env to
 // "instagram_business_basic,instagram_business_content_publish".
-import { redirectUri } from '@/server/env';
+import { redirectUri, assertMetaConfigured } from '@/server/env';
 import { ConnectedAccount, PublishInput, PublishResult, SocialConnector } from './types';
 import { buildAuthUrl, codeToUserToken, discoverPages, graphGet, graphPost } from './meta';
 
@@ -29,6 +29,7 @@ function scopes(): string[] {
 
 export const instagramConnector: SocialConnector = {
   id: 'instagram',
+  assertConfigured: assertMetaConfigured,
 
   getAuthUrl(state: string): string {
     return buildAuthUrl(redirectUri('instagram'), scopes(), state);

@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getConnector, isSupported } from '@/server/connectors/registry';
-import { assertMetaConfigured } from '@/server/env';
 
 // GET /api/connect/:platform  — start the OAuth flow (redirects to the provider).
 export async function GET(req: NextRequest, { params }: { params: { platform: string } }) {
@@ -9,7 +8,7 @@ export async function GET(req: NextRequest, { params }: { params: { platform: st
     return NextResponse.json({ error: `Unsupported platform: ${platform}` }, { status: 400 });
   }
   try {
-    assertMetaConfigured();
+    getConnector(platform).assertConfigured?.();
   } catch (e) {
     return NextResponse.json({ error: (e as Error).message }, { status: 500 });
   }

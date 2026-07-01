@@ -41,6 +41,9 @@ export interface PublishResult {
 export interface SocialConnector {
   id: TPlatformId;
 
+  // Validate this connector's required env config; throws a user-facing error if missing.
+  assertConfigured?(): void;
+
   // 1. OAuth — where to send the user to authorize.
   getAuthUrl(state: string): string;
   // Exchange the OAuth `code` from the callback for one or more connectable
