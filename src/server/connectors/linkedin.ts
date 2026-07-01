@@ -214,8 +214,48 @@ export const linkedinConnector: SocialConnector = {
     }));
   },
 
-  async publish(_account: ConnectedAccount, _input: PublishInput): Promise<PublishResult> {
-    // Implemented in Phase B (Task 6).
-    throw new Error('LinkedIn publishing is not implemented yet.');
+  async publish(account: ConnectedAccount, input: PublishInput): Promise<PublishResult> {
+    account = await ensureFreshToken(account);
+
+    // Resolve content by format (priority: video > multi-image > single image > link > text).
+    let content: Record<string, unknown> | undefined;
+
+    if (input.videoUrl || input.videoBlob) {
+      const bytes = input.videoBlob
+        ? new Uint8Array(await input.videoBlob.arrayBuffer())
+        : await fetchBytes(input.videoUrl!);
+      const videoUrn = await uploadVideo(account, bytes);
+      content = { media: { id: videoUrn } };
+    } else if (input.imageUrls && input.imageUrls.length > 1) {
+      const urns: string[] = [];
+      for (const u of input.imageUrls) urns.push(await uploadImage(account, await fetchBytes(u)));
+      content = { multiImage: { images: urns.map((id) => ({ id })) } };
+    } else if (input.imageUrl || input.imageBlob || (input.imageUrls && input.imageUrls.length === 1)) {
+      const url = input.imageUrl ?? input.imageUrls?.[0];
+      const bytes = input.imageBlob
+        ? new Uint8Array(await input.imageBlob.arrayBuffer())
+        : await fetchBytes(url!);
+      const imageUrn = await uploadImage(account, bytes);
+      content = { media: { id: imageUrn } };
+    } else if (input.link) {
+      content = { article: { source: input.link } };
+    }
+
+    const body: Record<string, unknown> = {
+      author: account.accountId,
+      commentary: input.message ?? '',
+      visibility: 'PUBLIC',
+      lifecycleState: 'PUBLISHED',
+      distribution: { feedDistribution: 'MAIN_FEED', targetEntities: [], thirdPartyDistributionChannels: [] },
+      ...(content ? { content } : {}),
+    };
+
+    const { data, restliId } = await liPost<{ id?: string }>(account.accessToken, '/posts', body);
+    const postUrn = restliId ?? data.id ?? '';
+    return {
+      remoteId: postUrn,
+      url: postUrn ? `https://www.linkedin.com/feed/update/${postUrn}` : undefined,
+      raw: data,
+    };
   },
 };
