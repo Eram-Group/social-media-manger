@@ -52,3 +52,16 @@ export function assertSnapchatConfigured(): void {
     );
   }
 }
+
+export const TIKTOK = {
+  clientKey: process.env.TIKTOK_CLIENT_KEY || '',
+  clientSecret: process.env.TIKTOK_CLIENT_SECRET || '',
+};
+
+export function assertTiktokConfigured(): void {
+  if (!TIKTOK.clientKey || !TIKTOK.clientSecret) {
+    throw new Error(
+      'TikTok is not configured. Set TIKTOK_CLIENT_KEY and TIKTOK_CLIENT_SECRET in your .env / .env.local.',
+    );
+  }
+}
