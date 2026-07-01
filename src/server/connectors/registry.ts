@@ -4,6 +4,7 @@ import { facebookConnector } from './facebook';
 import { instagramConnector } from './instagram';
 import { linkedinConnector } from './linkedin';
 import { snapchatConnector } from './snapchat';
+import { tiktokConnector } from './tiktok';
 
 // Platform id -> connector. Add LinkedIn, X, TikTok, Snapchat here as they land.
 const CONNECTORS: Partial<Record<TPlatformId, SocialConnector>> = {
@@ -11,6 +12,7 @@ const CONNECTORS: Partial<Record<TPlatformId, SocialConnector>> = {
   instagram: instagramConnector,
   linkedin: linkedinConnector,
   snapchat: snapchatConnector,
+  tiktok: tiktokConnector,
 };
 
 export function getConnector(platform: string): SocialConnector {
