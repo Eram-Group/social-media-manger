@@ -31,6 +31,7 @@ export async function GET(req: NextRequest, { params }: { params: { platform: st
     if (!accounts.length) {
       const reason = platform === 'instagram' ? 'no_ig_account'
         : platform === 'linkedin' ? 'no_orgs'
+        : platform === 'snapchat' ? 'no_profiles'
         : 'no_pages';
       return accountsUrl(`error=${reason}&platform=${platform}`);
     }

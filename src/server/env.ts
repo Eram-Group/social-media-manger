@@ -39,3 +39,16 @@ export function assertLinkedInConfigured(): void {
     );
   }
 }
+
+export const SNAPCHAT = {
+  clientId: process.env.SNAPCHAT_CLIENT_ID || '',
+  clientSecret: process.env.SNAPCHAT_CLIENT_SECRET || '',
+};
+
+export function assertSnapchatConfigured(): void {
+  if (!SNAPCHAT.clientId || !SNAPCHAT.clientSecret) {
+    throw new Error(
+      'Snapchat is not configured. Set SNAPCHAT_CLIENT_ID and SNAPCHAT_CLIENT_SECRET in your .env / .env.local.',
+    );
+  }
+}

@@ -126,10 +126,16 @@ export async function removeAccount(platform: string, accountId: string): Promis
   await fileWriteAll(all.filter((a) => !(a.platform === platform && a.accountId === accountId)));
 }
 
-// Strip secrets before returning to the browser.
+// Strip secrets before returning to the browser: the access token AND any
+// secret meta keys (refresh tokens). FB/IG only store non-secret meta (pageId).
 export function toPublic(a: ConnectedAccount) {
-  const { accessToken, ...safe } = a;
-  return safe;
+  const { accessToken, meta, ...safe } = a;
+  let publicMeta = meta;
+  if (meta && typeof meta === 'object') {
+    const { refreshToken, refreshTokenExpiresAt, ...restMeta } = meta as Record<string, unknown>;
+    publicMeta = restMeta;
+  }
+  return { ...safe, meta: publicMeta };
 }
 
 // ---- Hidden posts ----
