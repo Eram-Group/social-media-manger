@@ -1,6 +1,6 @@
 # EPCC Social Connectors — Master Plan (All Platforms)
 
-_Updated 2026-07-01 · branch `dev`. The single authoritative plan for every connector: architecture, per-platform build + go-live, and roadmap. Per-connector specs/plans live under `docs/superpowers/`._
+_Updated 2026-07-02 · branch `feat/tiktok-connector`. The single authoritative plan for every connector: architecture, per-platform build + go-live, and roadmap. Per-connector specs/plans live under `docs/superpowers/`._
 
 ---
 
@@ -71,18 +71,20 @@ Shared pieces reused by all:
 - **Follow-ups:** chunked upload for large video; `organizationId` fail-fast guard.
 - **Docs:** `docs/superpowers/specs|plans/2026-07-01-snapchat-connector*`.
 
-## 6. X (Twitter) — ⚪ to build (design ready)
-- **API:** X API **v2**. **OAuth:** OAuth 2.0 **Authorization Code + PKCE** (confidential client). Authorize `x.com/i/oauth2/authorize`; token `api.x.com/2/oauth2/token`; scopes `tweet.read tweet.write users.read offline.access` (offline.access → refresh token).
-- **PKCE handling (the one shared-flow change):** add optional `codeChallenge` to `getAuthUrl` and `codeVerifier` to `exchangeCode`; the connect route generates + cookies a `code_verifier` when a connector opts into PKCE. Backward-compatible (other connectors ignore it).
-- **Publish:** `POST /2/tweets` (text; media via chunked `media/upload` → `media_ids`; up to 4 images or 1 video). **Delete:** `DELETE /2/tweets/:id`. **Read-back:** tweet `public_metrics` (likes/retweets/replies/impressions) via `GET /2/tweets/:id?tweet.fields=public_metrics`; followers via `GET /2/users/me?user.fields=public_metrics`.
+## 6. X (Twitter) — 🔨 built; not live yet
+- **Code:** `x.ts` + `x.config.ts` (on `feat/tiktok-connector`). X API **v2**; OAuth 2.0 **Authorization Code + PKCE** (confidential client). Authorize `x.com/i/oauth2/authorize`; token `api.x.com/2/oauth2/token`; scopes `tweet.read tweet.write users.read offline.access` (offline.access → refresh token).
+- **PKCE handling (the one shared-flow change — done):** `SocialConnector.usesPkce` flag + optional `codeChallenge` on `getAuthUrl` and `codeVerifier` on `exchangeCode`; the connect route generates a `code_verifier` + S256 challenge and cookies the verifier for PKCE connectors. Backward-compatible (other connectors ignore it).
+- **Capabilities (built):** publish `POST /2/tweets` (text; chunked `media/upload` → `media_ids`; up to 4 images or 1 video), delete `DELETE /2/tweets/:id`, read-back tweet `public_metrics` (likes/retweets/replies/impressions) + follower count (`getUserStats`), ledger, analytics surfacing (overview/metrics/report/insights).
 - **Go-live gate:** X API v2 is **paid** — posting needs at least the **Basic tier (~$200/mo)**; free tier is write-limited.
-- **Build plan (≈8 tasks):** config+env → connector core (OAuth PKCE + `exchangeCode` /users/me + refresh + PKCE flow extension) → Accounts CONNECTABLE → media upload → publish → delete → publisher+ledger wiring → read-back → analytics surfacing. Build-green; `// VERIFY` on v2 shapes.
+- **Plan to finish (go-live):** put `X_CLIENT_ID`/`X_CLIENT_SECRET` in `.env.local` (Web App / confidential client; callback `…/api/connect/x/callback`) → subscribe to a paid tier → Connect → live-verify the `// VERIFY` endpoints (api.x.com hosts, media upload command flow).
+- **Follow-ups:** own Cron scheduler (X v2 has no native schedule); confirm media-upload host/field names live.
 
-## 7. TikTok — ⚪ to build
-- **API:** TikTok **Content Posting API** + **Login Kit** (OAuth2). Authorize `www.tiktok.com/v2/auth/authorize`; token `open.tiktokapis.com/v2/oauth/token`; scopes `video.publish`, `video.upload`, `user.info.basic` (+ `photo.publish` for photo mode). Refresh token supported.
-- **Publish:** video (and photo mode) via **PULL_FROM_URL** (TikTok fetches a public URL — pairs perfectly with our Vercel Blob upload) or FILE_UPLOAD; then a publish/init call → poll status. **Delete:** limited/none via API (persist via ledger). **Read-back:** video stats (views/likes/comments/shares) + user follower count (where scopes allow).
+## 7. TikTok — 🔨 built; not live yet
+- **Code:** `tiktok.ts` + `tiktok.config.ts` (on `feat/tiktok-connector`). TikTok **Content Posting API** + **Login Kit** (OAuth2). Authorize `www.tiktok.com/v2/auth/authorize`; token `open.tiktokapis.com/v2/oauth/token`; scopes `video.publish`, `video.upload`, `user.info.basic` (+ `photo.publish` for photo mode). Refresh token supported.
+- **Capabilities (built):** creator-info query (privacy level) → Direct Post video (**PULL_FROM_URL** — pairs with our Vercel Blob upload) and photo mode → poll status until `PUBLISH_COMPLETE`; read-back per-video stats (`getMetrics`: views/likes/comments/shares) + follower count (`getUserStats`); ledger; analytics surfacing. **Delete:** none via API → hide via ledger.
 - **Go-live gate:** **content-posting audit** by TikTok (~1–2 wks). Until approved, posts are forced **SELF_ONLY (private)**. Strict UX rules (show creator info) for the audit.
-- **Build plan (≈8 tasks):** config+env → connector core (OAuth + refresh + creator-info query) → Accounts CONNECTABLE → media (PULL_FROM_URL from Blob) → publish (init → poll) → publisher+ledger wiring → read-back → analytics surfacing. Build-green; `// VERIFY` on Content Posting API shapes.
+- **Plan to finish (go-live):** put `TIKTOK_CLIENT_KEY`/`TIKTOK_CLIENT_SECRET` in `.env.local` (callback `…/api/connect/tiktok/callback`; domain-verify the Blob media host for PULL_FROM_URL) → submit the content-posting audit → Connect → live-verify the `// VERIFY` endpoints (Content Posting API paths, `post_info`/`source_info` fields, video-query stats shape).
+- **Follow-ups:** own Cron scheduler; FILE_UPLOAD path for blob-only media (currently URL-only).
 
 ---
 
@@ -94,10 +96,10 @@ Shared pieces reused by all:
 | 2 | Instagram | done | — | 🟢 live |
 | 3 | LinkedIn | done | Community Management API approval | 🟡 personal live |
 | 4 | Snapchat | done | Snap Marketing-API approval | 🟡 built |
-| 5 | **X** | ~8 tasks | paid tier ($200/mo) | ⚪ next |
-| 6 | **TikTok** | ~8 tasks | content-posting audit (~2wk) | ⚪ after X |
+| 5 | **X** | done | paid tier ($200/mo) | 🟡 built |
+| 6 | **TikTok** | done | content-posting audit (~2wk) | 🟡 built |
 
-**Recommended order:** X next (simplest build; only cost is money), then TikTok (needs the audit lead-time — start that audit early in parallel).
+**All six connectors are now code-complete and build-green.** What's left is per-platform go-live: LinkedIn Community-Management-API approval, Snap Marketing-API approval, an X paid tier, and the TikTok content-posting audit — start the TikTok audit early since it has the longest lead-time.
 
 **Cross-cutting follow-ups (any time):** encrypt tokens at rest (`store.ts` note); IG own-scheduler (Cron); normalize per-route error surfacing; LinkedIn org post-list branch.
 
@@ -108,4 +110,5 @@ Shared pieces reused by all:
 - Status matrix: `docs/connectors-status.md` · Triage: `docs/connectors-triage.md`
 - LinkedIn: `docs/superpowers/specs|plans/2026-06-30-linkedin-connector*` + `docs/linkedin-setup.md`
 - Snapchat: `docs/superpowers/specs|plans/2026-07-01-snapchat-connector*`
-- X / TikTok: full spec + task-by-task plan to be written when each is greenlit (this doc is the blueprint).
+- TikTok: `docs/superpowers/specs|plans/2026-07-01-tiktok-connector*`
+- X: built directly from this master plan (§6) — code in `src/server/connectors/x.ts` + `x.config.ts`.
