@@ -173,4 +173,28 @@ export const snapchatConnector: SocialConnector = {
     account = await ensureFreshToken(account);
     await snapDelete(account.accessToken, `/content/${encodeURIComponent(remoteId)}`); // VERIFY path
   },
+
+  async getMetrics(account: ConnectedAccount, remoteId: string): Promise<Record<string, number>> {
+    account = await ensureFreshToken(account);
+    const out: Record<string, number> = {};
+    try {
+      const r = await snapGet<{ stats?: Record<string, number> }>(account.accessToken, `/content/${encodeURIComponent(remoteId)}/stats`);
+      const s = r.stats ?? {};
+      for (const k of ['views', 'impressions', 'screenshots', 'swipes', 'shares'] as const) {
+        if (typeof s[k] === 'number') out[k] = s[k];
+      }
+    } catch { /* metric unavailable — omit */ }
+    return out;
+  },
 };
+
+export async function getProfileStats(account: ConnectedAccount): Promise<{ followers?: number }> {
+  const fresh = await ensureFreshToken(account);
+  try {
+    const r = await snapGet<{ public_profile?: { subscriber_count?: number } }>(fresh.accessToken, `/public_profiles/${fresh.accountId}`);
+    const n = r.public_profile?.subscriber_count;
+    return typeof n === 'number' ? { followers: n } : {};
+  } catch {
+    return {};
+  }
+}
