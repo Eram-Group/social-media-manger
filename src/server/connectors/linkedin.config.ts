@@ -22,4 +22,9 @@ export const LINKEDIN_SCOPES = [
 // is approved (which unlocks Company-Page posting). Unset it (default) for the
 // full org-posting flow.
 export const LINKEDIN_IDENTITY_ONLY = process.env.LINKEDIN_IDENTITY_ONLY === 'true';
-export const LINKEDIN_IDENTITY_SCOPES = 'openid profile email w_member_social';
+// Member scopes. Override with LINKEDIN_IDENTITY_SCOPES when the app doesn't yet
+// have every product: connecting/returning the profile only needs
+// `openid profile email` (Sign In with OpenID Connect); publishing needs
+// `w_member_social` (Share on LinkedIn) — add that product, then include it here.
+export const LINKEDIN_IDENTITY_SCOPES =
+  process.env.LINKEDIN_IDENTITY_SCOPES || 'openid profile email w_member_social';
