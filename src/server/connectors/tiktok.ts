@@ -133,4 +133,37 @@ export const tiktokConnector: SocialConnector = {
     }
     return { remoteId: publishId, raw: { publishId } };
   },
+
+  async getMetrics(account: ConnectedAccount, remoteId: string): Promise<Record<string, number>> {
+    account = await ensureFreshToken(account);
+    const out: Record<string, number> = {};
+    try {
+      // VERIFY: video query shape + field names; needs the video.list scope.
+      const r = await ttPost<{ data?: { videos?: { view_count?: number; like_count?: number; comment_count?: number; share_count?: number }[] } }>(
+        account.accessToken, '/video/query/?fields=view_count,like_count,comment_count,share_count',
+        { filters: { video_ids: [remoteId] } },
+      );
+      const v = r.data?.videos?.[0];
+      if (v) {
+        if (typeof v.view_count === 'number') out.views = v.view_count;
+        if (typeof v.like_count === 'number') out.likes = v.like_count;
+        if (typeof v.comment_count === 'number') out.comments = v.comment_count;
+        if (typeof v.share_count === 'number') out.shares = v.share_count;
+      }
+    } catch { /* metric unavailable — omit */ }
+    return out;
+  },
 };
+
+// Account-level follower count for Analytics/Reports surfacing.
+export async function getUserStats(account: ConnectedAccount): Promise<{ followers?: number }> {
+  const fresh = await ensureFreshToken(account);
+  try {
+    const info = await ttGet<{ data?: { user?: { follower_count?: number } } }>(
+      fresh.accessToken, '/user/info/?fields=follower_count',
+    );
+    return { followers: info.data?.user?.follower_count };
+  } catch {
+    return {};
+  }
+}

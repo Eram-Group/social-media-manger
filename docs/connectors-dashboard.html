@@ -133,10 +133,10 @@ const C = [
    caps:{connect:1,publish:1,delete:1,readback:1,analytics:1},
    needs:'Code done (OAuth2 + PKCE, refresh, publish text/up-to-4 images/1 video, delete, per-tweet metrics + followers). Not live — go-live needs the <b>paid Basic tier (~$200/mo)</b>.',
    metrics:['likes','retweets','replies','impressions','followers'], demo:false, demoNote:'No follower demographics (X API limit). Per-tweet metrics need user context + paid tier'},
-  {key:'tiktok', name:'TikTok', api:'Content Posting API', color:'#010101', glyph:'♪', state:'todo',
-   caps:{connect:0,publish:0,delete:0,readback:0,analytics:0},
-   needs:'Not built. Go-live needs a <b>content-posting audit (~2 wks)</b>.',
-   metrics:['views','likes','comments','shares','followers','video count'], demo:false, demoNote:'No demographics via API (creator-portal only)'},
+  {key:'tiktok', name:'TikTok', api:'Content Posting API', color:'#010101', glyph:'♪', state:'built',
+   caps:{connect:1,publish:1,delete:0,readback:1,analytics:1},
+   needs:'Code done (OAuth2 + refresh, creator-info, Direct Post video/photo via PULL_FROM_URL, per-video stats + followers). Not live — go-live needs a <b>content-posting audit (~2 wks)</b>; posts stay SELF_ONLY until approved. (No delete — TikTok API has none.)',
+   metrics:['views','likes','comments','shares','followers'], demo:false, demoNote:'No demographics via API (creator-portal only)'},
 ];
 const CAPS = [['connect','Connect'],['publish','Publish'],['delete','Delete'],['readback','Read-back'],['analytics','Analytics']];
 const STATE = {live:{c:'var(--green)',t:'Live'},partial:{c:'var(--green)',t:'Partly live'},built:{c:'var(--amber)',t:'Built'},blocked:{c:'var(--red)',t:'Blocked'},todo:{c:'var(--grey)',t:'To build'}};
@@ -174,12 +174,12 @@ acards.innerHTML=C.map(c=>{
 
 // analytics availability matrix
 const AD=[
-  ['Followers / subscribers', {facebook:1,instagram:1,linkedin:'a',snapchat:'b',x:'b',tiktok:0}],
-  ['Follower growth over time', {facebook:1,instagram:1,linkedin:'a',snapchat:'b',x:'b',tiktok:0}],
-  ['Post engagement', {facebook:1,instagram:1,linkedin:'a',snapchat:'b',x:'b',tiktok:0}],
-  ['Reach / impressions', {facebook:'x',instagram:1,linkedin:'a',snapchat:'b',x:'p',tiktok:0}],
+  ['Followers / subscribers', {facebook:1,instagram:1,linkedin:'a',snapchat:'b',x:'b',tiktok:'b'}],
+  ['Follower growth over time', {facebook:1,instagram:1,linkedin:'a',snapchat:'b',x:'b',tiktok:'b'}],
+  ['Post engagement', {facebook:1,instagram:1,linkedin:'a',snapchat:'b',x:'b',tiktok:'b'}],
+  ['Reach / impressions', {facebook:'x',instagram:1,linkedin:'a',snapchat:'b',x:'p',tiktok:'b'}],
   ['Reactions by type', {facebook:1,instagram:'x',linkedin:'a',snapchat:'x',x:'x',tiktok:'x'}],
-  ['Video views / watch time', {facebook:1,instagram:1,linkedin:'a',snapchat:'b',x:0,tiktok:0}],
+  ['Video views / watch time', {facebook:1,instagram:1,linkedin:'a',snapchat:'b',x:0,tiktok:'b'}],
   ['Clicks (link / profile)', {facebook:1,instagram:1,linkedin:'a',snapchat:'b',x:'p',tiktok:0}],
   ['Audience demographics', {facebook:'x',instagram:1,linkedin:'a',snapchat:'b',x:'x',tiktok:'x'}],
 ];

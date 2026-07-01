@@ -146,8 +146,9 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    // X exposes per-tweet public_metrics (likes/retweets/replies/impressions).
-    if (platform === 'x') {
+    // X (per-tweet public_metrics) and TikTok (per-video stats) expose read-back
+    // via the connector's getMetrics.
+    if (platform === 'x' || platform === 'tiktok') {
       const connector = getConnector(platform);
       const metrics = connector.getMetrics ? await connector.getMetrics(account, remoteId) : {};
       return NextResponse.json({ ok: true, platform, metrics });

@@ -4,6 +4,7 @@ import { graphGet } from '@/server/connectors/meta';
 import { getOrgStats } from '@/server/connectors/linkedin';
 import { getProfileStats } from '@/server/connectors/snapchat';
 import { getUserStats } from '@/server/connectors/x';
+import { getUserStats as getTiktokStats } from '@/server/connectors/tiktok';
 import { getCached } from '@/server/cache';
 
 // GET /api/metrics — derived audience/performance metrics per connected account,
@@ -81,6 +82,17 @@ async function xMetrics(acc: any) {
   return m;
 }
 
+async function tiktokMetrics(acc: any) {
+  const m: any = { platform: 'tiktok', name: acc.name, followers_count: acc.followers ?? 0 };
+  try {
+    const stats = await getTiktokStats(acc);
+    if (typeof stats.followers === 'number') m.followers_count = stats.followers;
+  } catch (e) {
+    m.error = (e as Error).message;
+  }
+  return m;
+}
+
 async function instagramMetrics(acc: any) {
   const m: any = { platform: 'instagram', name: acc.name, followers_count: acc.followers ?? 0 };
   try {
@@ -136,14 +148,16 @@ async function computeMetrics() {
   const linkedin = [];
   const snapchat = [];
   const x = [];
+  const tiktok = [];
   for (const acc of accounts) {
     if (acc.platform === 'facebook') facebook.push(await facebookMetrics(acc));
     if (acc.platform === 'instagram') instagram.push(await instagramMetrics(acc));
     if (acc.platform === 'linkedin') linkedin.push(await linkedinMetrics(acc));
     if (acc.platform === 'snapchat') snapchat.push(await snapchatMetrics(acc));
     if (acc.platform === 'x') x.push(await xMetrics(acc));
+    if (acc.platform === 'tiktok') tiktok.push(await tiktokMetrics(acc));
   }
-  const all = [...facebook, ...instagram, ...linkedin, ...snapchat, ...x];
+  const all = [...facebook, ...instagram, ...linkedin, ...snapchat, ...x, ...tiktok];
   const general = {
     general_follower_count: all.reduce((s, m) => s + (m.followers_count ?? 0), 0),
     connected_accounts: all.length,
@@ -152,5 +166,5 @@ async function computeMetrics() {
     total_avg_likes: all.reduce((s, m) => s + (m.avg_likes ?? 0), 0),
     total_avg_comments: all.reduce((s, m) => s + (m.avg_comments ?? 0), 0),
   };
-  return { general, facebook, instagram, linkedin, snapchat, x };
+  return { general, facebook, instagram, linkedin, snapchat, x, tiktok };
 }

@@ -4,6 +4,7 @@ import { graphGet } from '@/server/connectors/meta';
 import { getOrgStats } from '@/server/connectors/linkedin';
 import { getProfileStats } from '@/server/connectors/snapchat';
 import { getUserStats } from '@/server/connectors/x';
+import { getUserStats as getTiktokStats } from '@/server/connectors/tiktok';
 import { analyzeSentiment, executiveSummary } from '@/server/ai';
 import { getCached } from '@/server/cache';
 
@@ -100,6 +101,13 @@ async function buildReport(period: 'weekly' | 'monthly') {
           if (typeof stats.followers === 'number') block.followers = stats.followers;
         } catch { /* followers unavailable */ }
         // X exposes per-tweet public_metrics via getMetrics, but no account-level
+        // reach/demographics feed here — those fields remain absent so the UI empty-states.
+      } else if (acc.platform === 'tiktok') {
+        try {
+          const stats = await getTiktokStats(acc);
+          if (typeof stats.followers === 'number') block.followers = stats.followers;
+        } catch { /* followers unavailable */ }
+        // TikTok exposes per-video stats via getMetrics, but no account-level
         // reach/demographics feed here — those fields remain absent so the UI empty-states.
       } else if (acc.platform === 'facebook') {
         const info = await graphGet<any>(acc.accountId, { access_token: acc.accessToken, fields: 'followers_count,fan_count' });

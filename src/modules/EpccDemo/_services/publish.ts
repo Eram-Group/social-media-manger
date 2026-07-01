@@ -4,7 +4,7 @@
 import { IPost, IPostRemoteRef } from '@/mock-server/posts';
 import { TPlatformId } from '@/mock-server/platforms';
 
-const SUPPORTED: TPlatformId[] = ['facebook', 'instagram', 'linkedin', 'snapchat', 'x'];
+const SUPPORTED: TPlatformId[] = ['facebook', 'instagram', 'linkedin', 'snapchat', 'x', 'tiktok'];
 
 export interface PublishOutcome {
   platform: TPlatformId;
@@ -92,9 +92,9 @@ export async function publishPost(post: IPost, scheduledPublishTime?: number): P
         body: JSON.stringify({
           platform, accountId: acct.accountId, message: post.content, format: post.format,
           imageUrl, videoUrl, scheduledPublishTime,
-          // LinkedIn/Snapchat/X: pass full image array for multi-image support; connector
+          // LinkedIn/Snapchat/X/TikTok: pass full image array for multi-image support; connector
           // uses imageUrls when present (falls back to imageUrl for single image).
-          ...((platform === 'linkedin' || platform === 'snapchat' || platform === 'x') && resolvedImageUrls.length > 0 && { imageUrls: resolvedImageUrls }),
+          ...((platform === 'linkedin' || platform === 'snapchat' || platform === 'x' || platform === 'tiktok') && resolvedImageUrls.length > 0 && { imageUrls: resolvedImageUrls }),
         }),
       });
       const j = await res.json();
