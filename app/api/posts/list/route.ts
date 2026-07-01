@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { listAccounts, listHidden } from '@/server/store';
+import { listAccounts, listHidden, listPublishedPosts } from '@/server/store';
 import { graphGet } from '@/server/connectors/meta';
 import { getCached } from '@/server/cache';
 import { IPost } from '@/mock-server/posts';
@@ -129,6 +129,33 @@ async function fetchPosts(): Promise<IPost[]> {
     } catch (e) {
       console.warn(`[posts/list] failed for ${acc.platform}:${acc.accountId}:`, (e as Error).message);
     }
+  }
+
+  // Locally-persisted posts for platforms we can't read back (LinkedIn member
+  // posts). Included so they stay in the list after a reload.
+  try {
+    for (const rec of await listPublishedPosts()) {
+      const d = new Date(rec.createdAt * 1000).toISOString();
+      posts.push({
+        // URL-safe id (the full URN with colons lives in remoteRefs); colons in
+        // the id break the /epcc-demo/posts/[id] route.
+        id: `${rec.platform}_${rec.remoteId.replace(/[^a-zA-Z0-9]+/g, '_')}`,
+        content: rec.message || '(no caption)',
+        platforms: [rec.platform as IPost['platforms'][number]],
+        date: d.slice(0, 10),
+        time: d.slice(11, 16),
+        status: 'published',
+        type: 'post',
+        format: (rec.format as IPost['format']) || 'post',
+        likes: 0,
+        comments: 0,
+        shares: 0,
+        media: rec.media,
+        remoteRefs: [{ platform: rec.platform as IPost['platforms'][number], accountId: rec.accountId, remoteId: rec.remoteId, url: rec.url }],
+      });
+    }
+  } catch (e) {
+    console.warn('[posts/list] published-ledger merge failed:', (e as Error).message);
   }
 
   // Group cross-posted content: the same caption published the same day to

@@ -209,6 +209,8 @@ export default function PostDetail() {
           ) : null}
           {live.error ? (
             <p className="text-sm text-text-red">Couldn’t load live metrics: {live.error}</p>
+          ) : live.data?.unavailable ? (
+            <p className="rounded-lg bg-neutral-100 px-3 py-2 text-sm text-neutral-600">{live.data.note}</p>
           ) : (
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               <LiveStat label="Likes" value={live.loading ? '…' : (live.data?.metrics?.likes ?? 0).toLocaleString()} />

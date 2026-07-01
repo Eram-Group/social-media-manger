@@ -131,6 +131,20 @@ export async function GET(req: NextRequest) {
       });
     }
 
+    // LinkedIn: per-post analytics for member (personal-profile) posts require the
+    // r_member_social permission, which LinkedIn has closed. Org (Company Page)
+    // post analytics need the Community Management API. Degrade gracefully rather
+    // than error so the UI can show a neutral "not available" state.
+    if (platform === 'linkedin') {
+      return NextResponse.json({
+        ok: true,
+        platform,
+        unavailable: true,
+        metrics: {},
+        note: 'LinkedIn does not provide per-post analytics via its API for this post type.',
+      });
+    }
+
     return NextResponse.json({ error: `Insights not supported for ${platform}` }, { status: 400 });
   } catch (e) {
     return NextResponse.json({ error: (e as Error).message }, { status: 500 });

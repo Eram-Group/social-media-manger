@@ -2,7 +2,10 @@ import {
   ConnectedAccount, PublishInput, PublishResult, SocialConnector,
 } from './types';
 import { LINKEDIN, assertLinkedInConfigured, redirectUri } from '@/server/env';
-import { LI_REST, LI_OAUTH, LINKEDIN_VERSION, LINKEDIN_SCOPES } from './linkedin.config';
+import {
+  LI_REST, LI_OAUTH, LINKEDIN_VERSION, LINKEDIN_SCOPES,
+  LINKEDIN_IDENTITY_ONLY, LINKEDIN_IDENTITY_SCOPES,
+} from './linkedin.config';
 import { upsertAccounts } from '@/server/store';
 
 // ── Request helpers ──────────────────────────────────────────────────────────
@@ -196,7 +199,7 @@ export const linkedinConnector: SocialConnector = {
       client_id: LINKEDIN.clientId,
       redirect_uri: redirectUri('linkedin'),
       state,
-      scope: LINKEDIN_SCOPES,
+      scope: LINKEDIN_IDENTITY_ONLY ? LINKEDIN_IDENTITY_SCOPES : LINKEDIN_SCOPES,
     });
     return `${LI_OAUTH}/authorization?${params.toString()}`;
   },
@@ -204,6 +207,34 @@ export const linkedinConnector: SocialConnector = {
   async exchangeCode(code: string): Promise<ConnectedAccount[]> {
     const t = await exchangeCodeForTokens(code);
     const now = Math.floor(Date.now() / 1000);
+
+    // INTERIM member mode: no org scopes yet, so connect the authenticating member
+    // via the OpenID userinfo endpoint (no org discovery). With `w_member_social`
+    // granted, publishing targets the member's PERSONAL profile (author = person
+    // URN). Cannot post to a Company Page (that needs the org scopes).
+    if (LINKEDIN_IDENTITY_ONLY) {
+      let info: { sub?: string; name?: string } = {};
+      try {
+        const res = await fetch('https://api.linkedin.com/v2/userinfo', {
+          headers: { Authorization: `Bearer ${t.access_token}` },
+          cache: 'no-store',
+        });
+        if (res.ok) info = await res.json();
+      } catch { /* fall back to a generic name below */ }
+      return [{
+        platform: 'linkedin' as const,
+        accountId: info.sub ? `urn:li:person:${info.sub}` : `urn:li:person:me`,
+        name: info.name ? `${info.name} (personal profile)` : 'LinkedIn member (personal profile)',
+        accessToken: t.access_token,
+        tokenExpiresAt: now + t.expires_in,
+        meta: {
+          refreshToken: t.refresh_token,
+          refreshTokenExpiresAt: t.refresh_token_expires_in ? now + t.refresh_token_expires_in : undefined,
+          identityOnly: true,
+        },
+      }];
+    }
+
     const orgs = await listAdminOrgs(t.access_token);
     return orgs.map((o) => ({
       platform: 'linkedin' as const,
