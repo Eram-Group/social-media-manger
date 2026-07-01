@@ -63,6 +63,9 @@
   .demo{font-size:12px;margin-top:4px}
   .demo.yes{color:#0a7a5c} .demo.no{color:#a33127}
   .note{font-size:13px;color:var(--muted);background:#F3F7FD;border:1px solid #DCE7F6;border-radius:10px;padding:10px 13px;margin:2px 0 14px}
+  td.acell{padding:7px 8px}
+  td.acell .ci{display:block;font-size:15px;line-height:1.15}
+  td.acell .cl{display:block;font-size:10px;font-weight:700;letter-spacing:.01em;opacity:.9;margin-top:1px}
   .metric b{color:var(--primary);font-weight:800}
   #adefs td:nth-child(2){text-align:left;color:var(--muted)}
   #adefs td:nth-child(3){text-align:left;font-variant-numeric:tabular-nums}
@@ -229,7 +232,16 @@ const AD=[
 ];
 const M={1:'✅','a':'🔒','b':'🟡','x':'⛔','p':'💲',0:'⬜'};
 const MT={1:'Available & wired — flows into EPCC dashboards now','a':'Built — needs LinkedIn Community Management API approval','b':'Built — lights up once the platform approves API access','x':'Not available — platform does not expose this','p':'Available — needs a paid API tier',0:'Not fetched yet'};
-amatrix.innerHTML=`<thead><tr><th>Data type</th>${C.map(c=>`<th>${c.name.split(' ')[0]}</th>`).join('')}</tr></thead><tbody>${AD.map(([l,row])=>`<tr><td>${l}</td>${C.map(c=>`<td title="${MT[row[c.key]]}">${M[row[c.key]]}</td>`).join('')}</tr>`).join('')}</tbody>`;
+// Real colour per state so each cell reads at a glance (bg tint + text/label colour).
+const CLR={
+  1:{bg:'#E6F7F0',fg:'#0a7a5c',t:'Wired'},
+  'a':{bg:'#F1EBFD',fg:'#6D28D9',t:'LinkedIn approval'},
+  'b':{bg:'#FEF4E2',fg:'#B7791F',t:'Approval'},
+  'x':{bg:'#FCE9E7',fg:'#B23127',t:'N/A'},
+  'p':{bg:'#E6EFFB',fg:'#025FCC',t:'Paid'},
+  0:{bg:'#F1F3F7',fg:'#8A97A8',t:'—'},
+};
+amatrix.innerHTML=`<thead><tr><th>Data type</th>${C.map(c=>`<th>${c.name.split(' ')[0]}</th>`).join('')}</tr></thead><tbody>${AD.map(([l,row])=>`<tr><td>${l}</td>${C.map(c=>{const k=row[c.key],cl=CLR[k];return `<td class="acell" style="background:${cl.bg};color:${cl.fg}" title="${MT[k]}"><span class="ci">${M[k]}</span><span class="cl">${cl.t}</span></td>`;}).join('')}</tr>`).join('')}</tbody>`;
 </script>
 </body>
 </html>
