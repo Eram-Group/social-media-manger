@@ -268,4 +268,44 @@ export const linkedinConnector: SocialConnector = {
     account = await ensureFreshToken(account);
     await liDelete(account.accessToken, `/posts/${encodeURIComponent(remoteId)}`);
   },
+
+  async getMetrics(account: ConnectedAccount, remoteId: string): Promise<Record<string, number>> {
+    account = await ensureFreshToken(account);
+    const out: Record<string, number> = {};
+    try {
+      const sa = await liGet<{ likesSummary?: { totalLikes?: number }; commentsSummary?: { totalComments?: number } }>(
+        account.accessToken, `/socialActions/${encodeURIComponent(remoteId)}`,
+      );
+      if (typeof sa.likesSummary?.totalLikes === 'number') out.likes = sa.likesSummary.totalLikes;
+      if (typeof sa.commentsSummary?.totalComments === 'number') out.comments = sa.commentsSummary.totalComments;
+    } catch { /* metric unavailable — omit */ }
+    try {
+      const orgUrn = account.accountId;
+      const stats = await liGet<{ elements?: { totalShareStatistics?: Record<string, number> }[] }>(
+        account.accessToken,
+        `/organizationalEntityShareStatistics?q=organizationalEntity&organizationalEntity=${encodeURIComponent(orgUrn)}&shares=List(${encodeURIComponent(remoteId)})`,
+      );
+      const t = stats.elements?.[0]?.totalShareStatistics;
+      if (t) {
+        if (typeof t.impressionCount === 'number') out.impressions = t.impressionCount;
+        if (typeof t.clickCount === 'number') out.clicks = t.clickCount;
+        if (typeof t.shareCount === 'number') out.shares = t.shareCount;
+        if (typeof t.engagement === 'number') out.engagement = t.engagement;
+      }
+    } catch { /* metric unavailable — omit */ }
+    return out;
+  },
 };
+
+export async function getOrgStats(account: ConnectedAccount): Promise<{ followers?: number }> {
+  const fresh = await ensureFreshToken(account);
+  try {
+    const ns = await liGet<{ firstDegreeSize?: number }>(
+      fresh.accessToken,
+      `/networkSizes/${encodeURIComponent(fresh.accountId)}?edgeType=COMPANY_FOLLOWED_BY_MEMBER`,
+    );
+    return { followers: ns.firstDegreeSize };
+  } catch {
+    return {};
+  }
+}
