@@ -62,6 +62,12 @@
   .none{font-size:12.5px;color:var(--muted);font-style:italic}
   .demo{font-size:12px;margin-top:4px}
   .demo.yes{color:#0a7a5c} .demo.no{color:#a33127}
+  .note{font-size:13px;color:var(--muted);background:#F3F7FD;border:1px solid #DCE7F6;border-radius:10px;padding:10px 13px;margin:2px 0 14px}
+  .metric b{color:var(--primary);font-weight:800}
+  #adefs td:nth-child(2){text-align:left;color:var(--muted)}
+  #adefs td:nth-child(3){text-align:left;font-variant-numeric:tabular-nums}
+  #adefs .ex{font-weight:700;color:var(--text)}
+  #adefs td:nth-child(4){text-align:left;color:var(--muted);font-style:italic}
   .foot{margin-top:26px;color:var(--muted);font-size:12.5px;text-align:center}
 </style>
 </head>
@@ -99,14 +105,27 @@
   <!-- ===== ANALYTICS ===== -->
   <section class="view" id="view-analytics">
     <h2>What analytics data each platform gives you</h2>
+    <div class="note">Chips show each metric with an <b>illustrative sample value</b> so you can picture the report. These are example figures — real numbers appear once the account is connected and (where noted) the platform approves API access.</div>
     <div class="cards" id="acards"></div>
+
+    <h2>What each metric means (with examples)</h2>
+    <div style="overflow:auto"><table id="adefs"></table></div>
+
     <h2>Cross-platform data availability</h2>
     <div style="overflow:auto"><table id="amatrix"></table></div>
     <div class="legend" style="margin-top:12px">
-      <span><i style="background:var(--green)"></i>Available &amp; wired</span>
-      <span><i style="background:var(--amber)"></i>Available, not wired / needs approval</span>
-      <span><i style="background:var(--red)"></i>Not available (platform limit)</span>
-      <span><i style="background:var(--grey)"></i>Connector not built</span>
+      <span><i style="background:var(--green)"></i>✅ Available &amp; wired — flows into EPCC dashboards now</span>
+      <span><i style="background:var(--amber)"></i>🟡 Built — lights up once the platform approves access</span>
+      <span><i style="background:#7C3AED"></i>🔒 Needs LinkedIn Community Management API approval</span>
+      <span><i style="background:var(--primary)"></i>💲 Needs a paid API tier</span>
+      <span><i style="background:var(--red)"></i>⛔ Not available (platform limit)</span>
+      <span><i style="background:var(--grey)"></i>⬜ Not fetched yet</span>
+    </div>
+    <div class="foot" style="margin-top:16px;text-align:left">
+      How to read this: EPCC will get <b>followers, follower growth and post engagement on every connected platform</b>.
+      The differences are mostly about <b>reach, demographics and reactions</b> — Instagram is the richest (full demographics),
+      Facebook gives reaction breakdowns, and LinkedIn/Snapchat/X/TikTok unlock their extra data only after each platform
+      grants API access (LinkedIn approval · Snap Marketing-API approval · X paid tier · TikTok audit).
     </div>
   </section>
 
@@ -164,13 +183,38 @@ cards.innerHTML=C.map(c=>{
 matrix.innerHTML=`<thead><tr><th>Capability</th>${C.map(c=>`<th>${c.name.split(' ')[0]}</th>`).join('')}</tr></thead><tbody>${CAPS.map(([k,l])=>`<tr><td>${l}</td>${C.map(c=>`<td>${c.state==='todo'?'⬜':c.caps[k]?'✅':'—'}</td>`).join('')}</tr>`).join('')}</tbody>`;
 
 // ---- analytics view ----
+// Illustrative sample values per metric name (example figures, not live data).
+const EX={
+  'engagements':'512','page views':'3.1k','video views':'5.3k','watch time':'1,240 min',
+  'reactions by type':'👍240 ❤️60 😮12','clicks':'180','follows/unfollows':'+212 / −18',
+  'reach':'12.4k','views':'5.3k','interactions':'640','likes':'320','comments':'48',
+  'shares':'72','saves':'95','profile visits':'210','impressions':'31.9k',
+  'engagement rate':'4.2%','screenshots':'58','swipes':'410','subscribers':'8.4k',
+  'retweets':'86','replies':'34','followers':'8.4k',
+};
 acards.innerHTML=C.map(c=>{
   const st=STATE[c.state];
-  const mets=c.metrics.length?`<div class="metrics">${c.metrics.map(m=>`<span class="metric">${m}</span>`).join('')}</div>`:`<div class="none">not built</div>`;
+  const mets=c.metrics.length
+    ? `<div class="metrics">${c.metrics.map(m=>`<span class="metric">${m}${EX[m]?` <b>${EX[m]}</b>`:''}</span>`).join('')}</div>`
+    : `<div class="none">not built</div>`;
   const demoCls=c.demo===true?'yes':c.demo==='soon'?'yes':'no';
   const demoIcon=c.demo===true?'✅':c.demo==='soon'?'🟡':'⛔';
   return `<div class="card"><div class="top"><div class="plat"><div class="glyph" style="background:${c.color};${c.dark?'color:#111':''}">${c.glyph}</div><div><div class="name">${c.name}</div><div class="api">${c.api}</div></div></div><span class="badge"><span class="dot" style="background:${st.c}"></span>${st.t}</span></div>${mets}<div class="demo ${demoCls}">${demoIcon} Demographics: ${c.demoNote}</div></div>`;
 }).join('');
+
+// ---- metric definitions (plain-English + example + what it's good for) ----
+const DEFS=[
+  ['Followers / subscribers','Total accounts following the profile right now.','8,450 followers','Audience size & reach potential'],
+  ['Follower growth over time','Net new followers gained/lost over a period.','+212 this month (+2.6%)','Momentum & campaign impact'],
+  ['Post engagement','Likes + comments + shares + saves on a post.','512 engagements on one post','Which content resonates'],
+  ['Reach / impressions','Unique accounts reached vs. total times shown.','12.4k reach · 31.9k impressions','How far content travels'],
+  ['Reactions by type','Breakdown of Like / Love / Haha / Wow / Sad / Angry.','👍240 · ❤️60 · 😮12','Audience sentiment, not just volume'],
+  ['Video views / watch time','Video plays (3s+) and total minutes watched.','5.3k views · 1,240 min watched','Video ROI & hook strength'],
+  ['Clicks (link / profile)','Taps on links, the profile, or CTA buttons.','180 link clicks · 95 profile taps','Traffic & conversions'],
+  ['Audience demographics','Age, gender and location split of the followers.','25–34: 62% · Male 58% · Dammam 40%','Personas & ad targeting'],
+];
+adefs.innerHTML=`<thead><tr><th>Data type</th><th>What it measures</th><th>Example</th><th>Best used for</th></tr></thead>`
+  +`<tbody>${DEFS.map(([d,w,e,u])=>`<tr><td>${d}</td><td>${w}</td><td><span class="ex">${e}</span></td><td>${u}</td></tr>`).join('')}</tbody>`;
 
 // analytics availability matrix
 const AD=[
@@ -184,7 +228,8 @@ const AD=[
   ['Audience demographics', {facebook:'x',instagram:1,linkedin:'a',snapchat:'b',x:'x',tiktok:'x'}],
 ];
 const M={1:'✅','a':'🔒','b':'🟡','x':'⛔','p':'💲',0:'⬜'};
-amatrix.innerHTML=`<thead><tr><th>Data type</th>${C.map(c=>`<th>${c.name.split(' ')[0]}</th>`).join('')}</tr></thead><tbody>${AD.map(([l,row])=>`<tr><td>${l}</td>${C.map(c=>`<td title="${row[c.key]}">${M[row[c.key]]}</td>`).join('')}</tr>`).join('')}</tbody>`;
+const MT={1:'Available & wired — flows into EPCC dashboards now','a':'Built — needs LinkedIn Community Management API approval','b':'Built — lights up once the platform approves API access','x':'Not available — platform does not expose this','p':'Available — needs a paid API tier',0:'Not fetched yet'};
+amatrix.innerHTML=`<thead><tr><th>Data type</th>${C.map(c=>`<th>${c.name.split(' ')[0]}</th>`).join('')}</tr></thead><tbody>${AD.map(([l,row])=>`<tr><td>${l}</td>${C.map(c=>`<td title="${MT[row[c.key]]}">${M[row[c.key]]}</td>`).join('')}</tr>`).join('')}</tbody>`;
 </script>
 </body>
 </html>
