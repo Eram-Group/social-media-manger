@@ -119,7 +119,7 @@ async function computeMetrics() {
   const general = {
     general_follower_count: all.reduce((s, m) => s + (m.followers_count ?? 0), 0),
     connected_accounts: all.length,
-    avg_engagement_rate_percentage: pct(avg(all.map((m) => m.engagement_rate_percentage ?? 0))),
+    avg_engagement_rate_percentage: pct(avg(all.map((m) => m.engagement_rate_percentage).filter((v): v is number => v != null))),
     total_avg_likes: all.reduce((s, m) => s + (m.avg_likes ?? 0), 0),
     total_avg_comments: all.reduce((s, m) => s + (m.avg_comments ?? 0), 0),
   };
