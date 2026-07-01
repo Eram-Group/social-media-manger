@@ -13,26 +13,29 @@
   }
   *{box-sizing:border-box}
   body{margin:0;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text)}
-  .wrap{max-width:1100px;margin:0 auto;padding:32px 20px 64px}
-  header{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:8px}
+  .wrap{max-width:1120px;margin:0 auto;padding:32px 20px 64px}
+  header{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
   h1{font-size:26px;margin:0;letter-spacing:-.02em}
   .sub{color:var(--muted);font-size:14px;margin-top:4px}
-  .badge{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:4px 10px;border-radius:999px;border:1px solid var(--line)}
+  .badge{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:4px 10px;border-radius:999px;border:1px solid var(--line);background:#fff}
   .dot{width:8px;height:8px;border-radius:50%}
+  /* tabs */
+  .tabs{display:inline-flex;background:#EAF0F8;border-radius:12px;padding:4px;margin:22px 0 6px;gap:4px}
+  .tab{border:0;background:transparent;font:inherit;font-weight:600;font-size:14px;color:var(--muted);padding:8px 18px;border-radius:9px;cursor:pointer}
+  .tab.active{background:#fff;color:var(--primary-900);box-shadow:var(--shadow)}
+  .view{display:none} .view.active{display:block}
   /* summary */
-  .summary{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:22px 0 8px}
+  .summary{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:14px 0 8px}
   .stat{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px 18px;box-shadow:var(--shadow)}
   .stat .n{font-size:30px;font-weight:800;letter-spacing:-.02em}
   .stat .l{font-size:13px;color:var(--muted);margin-top:2px}
   .stat.live .n{color:var(--green)} .stat.built .n{color:var(--amber)}
   .stat.blocked .n{color:var(--red)} .stat.todo .n{color:var(--grey)}
-  /* overall progress */
   .prog{height:12px;border-radius:999px;background:#E9EEF6;overflow:hidden;display:flex;margin-top:14px}
   .prog span{height:100%}
   .legend{display:flex;gap:16px;flex-wrap:wrap;margin:10px 0 0;font-size:12.5px;color:var(--muted)}
   .legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:middle}
-  h2{font-size:16px;margin:34px 0 12px;letter-spacing:-.01em}
-  /* cards */
+  h2{font-size:16px;margin:30px 0 12px;letter-spacing:-.01em}
   .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:16px}
   .card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:18px;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:12px}
   .card .top{display:flex;align-items:center;justify-content:space-between;gap:10px}
@@ -46,13 +49,19 @@
   .cap{font-size:11.5px;padding:3px 8px;border-radius:7px;border:1px solid var(--line);color:var(--muted);background:#FbFcFe}
   .cap.ok{color:#0a7a5c;border-color:#bfe9dc;background:#ecfbf5}
   .cap.no{color:#a33127;border-color:#f3cfca;background:#fdeeec}
-  .needs{font-size:13px;color:var(--text);background:#FbFbF3;border:1px dashed #E7DFAf;border-radius:10px;padding:10px 12px}
+  .needs{font-size:13px;background:#FbFbF3;border:1px dashed #E7DFAf;border-radius:10px;padding:10px 12px}
   .needs b{color:var(--primary-900)}
   table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden;box-shadow:var(--shadow);font-size:13px}
   th,td{padding:9px 12px;text-align:center;border-bottom:1px solid var(--line)}
   th:first-child,td:first-child{text-align:left;font-weight:600}
   thead th{background:#F0F4FA;color:var(--muted);font-weight:700;font-size:12px}
   tbody tr:last-child td{border-bottom:none}
+  /* analytics view */
+  .metrics{display:flex;flex-wrap:wrap;gap:6px}
+  .metric{font-size:11.5px;padding:3px 9px;border-radius:999px;background:#EEF4FC;color:var(--primary-900);border:1px solid #D6E4F7}
+  .none{font-size:12.5px;color:var(--muted);font-style:italic}
+  .demo{font-size:12px;margin-top:4px}
+  .demo.yes{color:#0a7a5c} .demo.no{color:#a33127}
   .foot{margin-top:26px;color:var(--muted);font-size:12.5px;text-align:center}
 </style>
 </head>
@@ -61,95 +70,121 @@
   <header>
     <div>
       <h1>Social Connectors — Tracker &amp; Analyzer</h1>
-      <div class="sub">Eastern Province Chamber of Commerce · live status of every platform integration</div>
+      <div class="sub">Eastern Province Chamber of Commerce · status + analytics data per platform</div>
     </div>
     <span class="badge"><span class="dot" style="background:var(--primary)"></span> updated 2026-07-01 · branch <code>dev</code></span>
   </header>
 
-  <div class="summary" id="summary"></div>
-
-  <div class="prog" id="overall"></div>
-  <div class="legend">
-    <span><i style="background:var(--green)"></i>Live &amp; working</span>
-    <span><i style="background:var(--amber)"></i>Built (not verified live)</span>
-    <span><i style="background:var(--red)"></i>Blocked (platform approval)</span>
-    <span><i style="background:var(--grey)"></i>Not built</span>
+  <div class="tabs">
+    <button class="tab active" data-view="status">📊 Status Tracker</button>
+    <button class="tab" data-view="analytics">📈 Analytics Data</button>
   </div>
 
-  <h2>Connectors</h2>
-  <div class="cards" id="cards"></div>
+  <!-- ===== STATUS ===== -->
+  <section class="view active" id="view-status">
+    <div class="summary" id="summary"></div>
+    <div class="prog" id="overall"></div>
+    <div class="legend">
+      <span><i style="background:var(--green)"></i>Live &amp; working</span>
+      <span><i style="background:var(--amber)"></i>Built (not verified live)</span>
+      <span><i style="background:var(--red)"></i>Blocked (platform approval)</span>
+      <span><i style="background:var(--grey)"></i>Not built</span>
+    </div>
+    <h2>Connectors</h2>
+    <div class="cards" id="cards"></div>
+    <h2>Capability matrix</h2>
+    <div style="overflow:auto"><table id="matrix"></table></div>
+  </section>
 
-  <h2>Capability matrix</h2>
-  <div style="overflow:auto"><table id="matrix"></table></div>
+  <!-- ===== ANALYTICS ===== -->
+  <section class="view" id="view-analytics">
+    <h2>What analytics data each platform gives you</h2>
+    <div class="cards" id="acards"></div>
+    <h2>Cross-platform data availability</h2>
+    <div style="overflow:auto"><table id="amatrix"></table></div>
+    <div class="legend" style="margin-top:12px">
+      <span><i style="background:var(--green)"></i>Available &amp; wired</span>
+      <span><i style="background:var(--amber)"></i>Available, not wired / needs approval</span>
+      <span><i style="background:var(--red)"></i>Not available (platform limit)</span>
+      <span><i style="background:var(--grey)"></i>Connector not built</span>
+    </div>
+  </section>
 
-  <div class="foot">Generated artifact · mirrors <code>docs/connectors-status.md</code>, <code>connectors-triage.md</code>, <code>connectors-master-plan.md</code></div>
+  <div class="foot">Generated artifact · mirrors the connectors-*.md docs on <code>dev</code></div>
 </div>
 
 <script>
 const C = [
   {key:'facebook', name:'Facebook', api:'Meta Graph v22', color:'#1877F2', glyph:'f', state:'live',
-   caps:{connect:1,publish:1,delete:1,readback:1,analytics:1}, needs:'Nothing — fully live.'},
+   caps:{connect:1,publish:1,delete:1,readback:1,analytics:1}, needs:'Nothing — fully live.',
+   metrics:['engagements','page views','video views','watch time','reactions by type','clicks','follows/unfollows'], demo:false, demoNote:'No demographics (Meta removed for FB Pages)'},
   {key:'instagram', name:'Instagram', api:'IG Graph', color:'#E1306C', glyph:'IG', state:'live',
-   caps:{connect:1,publish:1,delete:0,readback:1,analytics:1}, needs:'Nothing live. (Delete not possible — IG API forbids it.)'},
+   caps:{connect:1,publish:1,delete:0,readback:1,analytics:1}, needs:'Nothing live. (Delete not possible — IG API forbids it.)',
+   metrics:['reach','views','interactions','likes','comments','shares','saves','profile visits','clicks'], demo:true, demoNote:'Age, gender, top countries/cities (100+ followers)'},
   {key:'linkedin', name:'LinkedIn', api:'REST Posts API', color:'#0A66C2', glyph:'in', state:'partial',
    caps:{connect:1,publish:1,delete:1,readback:0,analytics:0},
-   needs:'Personal-profile publish works live. Company Page + analytics need <b>Community Management API</b> approval (new single-product app + Chamber legal org + business email + verified Page).'},
+   needs:'Personal-profile publish works live. Company Page + analytics need <b>Community Management API</b> approval.',
+   metrics:['impressions','clicks','likes','comments','shares','engagement rate','page views'], demo:'soon', demoNote:'Richest: industry, seniority, function, company size, region (after approval)'},
   {key:'snapchat', name:'Snapchat', api:'Public Profile API', color:'#FFFC00', glyph:'👻', dark:1, state:'built',
    caps:{connect:1,publish:1,delete:1,readback:1,analytics:1},
-   needs:'Code done; nothing live yet. Needs <b>Snap Business account + Public Profile + OAuth app + Marketing-API approval</b>, then Client ID/Secret in .env.local.'},
+   needs:'Code done; not live. Needs <b>Snap Business account + Public Profile + Marketing-API approval</b>.',
+   metrics:['views','impressions','screenshots','swipes','shares','subscribers'], demo:'soon', demoNote:'Age, gender, region (public profiles with enough followers)'},
   {key:'x', name:'X (Twitter)', api:'X API v2 (PKCE)', color:'#0F1419', glyph:'𝕏', state:'todo',
    caps:{connect:0,publish:0,delete:0,readback:0,analytics:0},
-   needs:'Not built (design ready). Build ~8 tasks. Go-live needs the <b>paid Basic tier (~$200/mo)</b>.'},
+   needs:'Not built (design ready). Go-live needs the <b>paid Basic tier (~$200/mo)</b>.',
+   metrics:['likes','retweets','replies','quotes','impressions','link clicks*','profile clicks*','followers'], demo:false, demoNote:'No follower demographics (X API limit). *organic metrics need user context + paid tier'},
   {key:'tiktok', name:'TikTok', api:'Content Posting API', color:'#010101', glyph:'♪', state:'todo',
    caps:{connect:0,publish:0,delete:0,readback:0,analytics:0},
-   needs:'Not built. Build ~8 tasks. Go-live needs a <b>content-posting audit (~2 wks)</b>; posts private until approved.'},
+   needs:'Not built. Go-live needs a <b>content-posting audit (~2 wks)</b>.',
+   metrics:['views','likes','comments','shares','followers','video count'], demo:false, demoNote:'No demographics via API (creator-portal only)'},
 ];
 const CAPS = [['connect','Connect'],['publish','Publish'],['delete','Delete'],['readback','Read-back'],['analytics','Analytics']];
 const STATE = {live:{c:'var(--green)',t:'Live'},partial:{c:'var(--green)',t:'Partly live'},built:{c:'var(--amber)',t:'Built'},blocked:{c:'var(--red)',t:'Blocked'},todo:{c:'var(--grey)',t:'To build'}};
 
-// summary counts
-const counts = {live:0,built:0,blocked:0,todo:0};
+// tabs
+document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+  document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));
+  t.classList.add('active');
+  document.getElementById('view-'+t.dataset.view).classList.add('active');
+});
+
+// ---- status view ----
+const counts={live:0,built:0,blocked:0,todo:0};
 C.forEach(c=>{ if(c.state==='live'||c.state==='partial')counts.live++; else if(c.state==='built')counts.built++; else if(c.state==='blocked')counts.blocked++; else counts.todo++; });
-document.getElementById('summary').innerHTML = [
-  ['live','Live / working',counts.live],['built','Built · not live',counts.built],
-  ['blocked','Blocked',counts.blocked],['todo','Not built',counts.todo]
-].map(([cls,l,n])=>`<div class="stat ${cls}"><div class="n">${n}</div><div class="l">${l}</div></div>`).join('');
-
-// overall progress bar (by connector state weight)
-const seg = {live:counts.live,built:counts.built,todo:counts.todo};
+summary.innerHTML=[['live','Live / working',counts.live],['built','Built · not live',counts.built],['blocked','Blocked',counts.blocked],['todo','Not built',counts.todo]]
+  .map(([cls,l,n])=>`<div class="stat ${cls}"><div class="n">${n}</div><div class="l">${l}</div></div>`).join('');
 const total=C.length;
-document.getElementById('overall').innerHTML =
-  `<span style="width:${seg.live/total*100}%;background:var(--green)"></span>`+
-  `<span style="width:${seg.built/total*100}%;background:var(--amber)"></span>`+
-  `<span style="width:${seg.todo/total*100}%;background:var(--grey)"></span>`;
+overall.innerHTML=`<span style="width:${counts.live/total*100}%;background:var(--green)"></span><span style="width:${counts.built/total*100}%;background:var(--amber)"></span><span style="width:${counts.todo/total*100}%;background:var(--grey)"></span>`;
+cards.innerHTML=C.map(c=>{
+  const done=Object.values(c.caps).filter(Boolean).length, pct=Math.round(done/CAPS.length*100), st=STATE[c.state];
+  const caps=CAPS.map(([k,l])=>`<span class="cap ${c.caps[k]?'ok':'no'}">${c.caps[k]?'✓':'✕'} ${l}</span>`).join('');
+  return `<div class="card"><div class="top"><div class="plat"><div class="glyph" style="background:${c.color};${c.dark?'color:#111':''}">${c.glyph}</div><div><div class="name">${c.name}</div><div class="api">${c.api}</div></div></div><div class="ring" style="--p:${pct};--c:${st.c}"><b>${pct}%</b></div></div><div><span class="badge"><span class="dot" style="background:${st.c}"></span>${st.t}</span></div><div class="caps">${caps}</div><div class="needs"><b>Needs:</b> ${c.needs}</div></div>`;
+}).join('');
+matrix.innerHTML=`<thead><tr><th>Capability</th>${C.map(c=>`<th>${c.name.split(' ')[0]}</th>`).join('')}</tr></thead><tbody>${CAPS.map(([k,l])=>`<tr><td>${l}</td>${C.map(c=>`<td>${c.state==='todo'?'⬜':c.caps[k]?'✅':'—'}</td>`).join('')}</tr>`).join('')}</tbody>`;
 
-// cards
-document.getElementById('cards').innerHTML = C.map(c=>{
-  const done = Object.values(c.caps).filter(Boolean).length;
-  const pct = Math.round(done/CAPS.length*100);
-  const st = STATE[c.state];
-  const caps = CAPS.map(([k,l])=>`<span class="cap ${c.caps[k]?'ok':'no'}">${c.caps[k]?'✓':'✕'} ${l}</span>`).join('');
-  return `<div class="card">
-    <div class="top">
-      <div class="plat">
-        <div class="glyph" style="background:${c.color};${c.dark?'color:#111':''}">${c.glyph}</div>
-        <div><div class="name">${c.name}</div><div class="api">${c.api}</div></div>
-      </div>
-      <div class="ring" style="--p:${pct};--c:${st.c}"><b>${pct}%</b></div>
-    </div>
-    <div><span class="badge"><span class="dot" style="background:${st.c}"></span>${st.t}</span></div>
-    <div class="caps">${caps}</div>
-    <div class="needs"><b>Needs:</b> ${c.needs}</div>
-  </div>`;
+// ---- analytics view ----
+acards.innerHTML=C.map(c=>{
+  const st=STATE[c.state];
+  const mets=c.metrics.length?`<div class="metrics">${c.metrics.map(m=>`<span class="metric">${m}</span>`).join('')}</div>`:`<div class="none">not built</div>`;
+  const demoCls=c.demo===true?'yes':c.demo==='soon'?'yes':'no';
+  const demoIcon=c.demo===true?'✅':c.demo==='soon'?'🟡':'⛔';
+  return `<div class="card"><div class="top"><div class="plat"><div class="glyph" style="background:${c.color};${c.dark?'color:#111':''}">${c.glyph}</div><div><div class="name">${c.name}</div><div class="api">${c.api}</div></div></div><span class="badge"><span class="dot" style="background:${st.c}"></span>${st.t}</span></div>${mets}<div class="demo ${demoCls}">${demoIcon} Demographics: ${c.demoNote}</div></div>`;
 }).join('');
 
-// matrix
-const head = `<thead><tr><th>Capability</th>${C.map(c=>`<th>${c.name.split(' ')[0]}</th>`).join('')}</tr></thead>`;
-const rows = CAPS.map(([k,l])=>`<tr><td>${l}</td>${C.map(c=>{
-  const v=c.caps[k]; const built=c.state!=='todo';
-  return `<td>${!built?'⬜':v?'✅':'—'}</td>`;
-}).join('')}</tr>`).join('');
-document.getElementById('matrix').innerHTML = head+`<tbody>${rows}</tbody>`;
+// analytics availability matrix
+const AD=[
+  ['Followers / subscribers', {facebook:1,instagram:1,linkedin:'a',snapchat:'b',x:0,tiktok:0}],
+  ['Follower growth over time', {facebook:1,instagram:1,linkedin:'a',snapchat:'b',x:0,tiktok:0}],
+  ['Post engagement', {facebook:1,instagram:1,linkedin:'a',snapchat:'b',x:0,tiktok:0}],
+  ['Reach / impressions', {facebook:'x',instagram:1,linkedin:'a',snapchat:'b',x:'p',tiktok:0}],
+  ['Reactions by type', {facebook:1,instagram:'x',linkedin:'a',snapchat:'x',x:'x',tiktok:'x'}],
+  ['Video views / watch time', {facebook:1,instagram:1,linkedin:'a',snapchat:'b',x:0,tiktok:0}],
+  ['Clicks (link / profile)', {facebook:1,instagram:1,linkedin:'a',snapchat:'b',x:'p',tiktok:0}],
+  ['Audience demographics', {facebook:'x',instagram:1,linkedin:'a',snapchat:'b',x:'x',tiktok:'x'}],
+];
+const M={1:'✅','a':'🔒','b':'🟡','x':'⛔','p':'💲',0:'⬜'};
+amatrix.innerHTML=`<thead><tr><th>Data type</th>${C.map(c=>`<th>${c.name.split(' ')[0]}</th>`).join('')}</tr></thead><tbody>${AD.map(([l,row])=>`<tr><td>${l}</td>${C.map(c=>`<td title="${row[c.key]}">${M[row[c.key]]}</td>`).join('')}</tr>`).join('')}</tbody>`;
 </script>
 </body>
 </html>
