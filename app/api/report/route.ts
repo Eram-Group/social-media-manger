@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { listAccounts } from '@/server/store';
 import { graphGet } from '@/server/connectors/meta';
 import { getOrgStats } from '@/server/connectors/linkedin';
+import { getProfileStats } from '@/server/connectors/snapchat';
 import { analyzeSentiment, executiveSummary } from '@/server/ai';
 import { getCached } from '@/server/cache';
 
@@ -84,6 +85,13 @@ async function buildReport(period: 'weekly' | 'monthly') {
           if (typeof stats.followers === 'number') block.followers = stats.followers;
         } catch { /* followers unavailable */ }
         // LinkedIn lacks reach/demographics/post-feed equivalents accessible via the
+        // current connector — those fields remain absent so the UI empty-states.
+      } else if (acc.platform === 'snapchat') {
+        try {
+          const stats = await getProfileStats(acc);
+          if (typeof stats.followers === 'number') block.followers = stats.followers;
+        } catch { /* followers unavailable */ }
+        // Snapchat lacks reach/demographics/post-feed equivalents accessible via the
         // current connector — those fields remain absent so the UI empty-states.
       } else if (acc.platform === 'facebook') {
         const info = await graphGet<any>(acc.accountId, { access_token: acc.accessToken, fields: 'followers_count,fan_count' });

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { listAccounts } from '@/server/store';
 import { graphGet } from '@/server/connectors/meta';
 import { getOrgStats } from '@/server/connectors/linkedin';
+import { getProfileStats } from '@/server/connectors/snapchat';
 import { getCached } from '@/server/cache';
 
 // GET /api/overview — the richest real snapshot the Graph API still allows:
@@ -156,6 +157,18 @@ async function linkedinOverview(acc: any) {
   return view;
 }
 
+async function snapchatOverview(acc: any) {
+  const view: any = {
+    accountId: acc.accountId, name: acc.name, platform: 'snapchat',
+    followers: acc.followers ?? null,
+  };
+  try {
+    const stats = await getProfileStats(acc);
+    if (typeof stats.followers === 'number') view.followers = stats.followers;
+  } catch (e) { view.statsError = (e as Error).message; }
+  return view;
+}
+
 async function instagramOverview(acc: any, points: PostPoint[], since: number, until: number) {
   const token = acc.accessToken;
   const view: any = { accountId: acc.accountId, name: acc.name, platform: 'instagram', followers: acc.followers ?? null, stats: {} };
@@ -193,13 +206,15 @@ async function computeOverview(days: number) {
   const facebook = [];
   const instagram = [];
   const linkedin = [];
+  const snapchat = [];
   for (const acc of accounts) {
     if (acc.platform === 'facebook') facebook.push(await facebookOverview(acc, points, since, until));
     if (acc.platform === 'instagram') instagram.push(await instagramOverview(acc, points, since, until));
     if (acc.platform === 'linkedin') linkedin.push(await linkedinOverview(acc));
+    if (acc.platform === 'snapchat') snapchat.push(await snapchatOverview(acc));
   }
-  if (!facebook.length && !instagram.length && !linkedin.length) {
-    return { ok: true, available: false, facebook: [], instagram: [], linkedin: [], bestTimes: null };
+  if (!facebook.length && !instagram.length && !linkedin.length && !snapchat.length) {
+    return { ok: true, available: false, facebook: [], instagram: [], linkedin: [], snapchat: [], bestTimes: null };
   }
-  return { ok: true, available: true, facebook, instagram, linkedin, bestTimes: buildBestTimes(points) };
+  return { ok: true, available: true, facebook, instagram, linkedin, snapchat, bestTimes: buildBestTimes(points) };
 }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { listAccounts } from '@/server/store';
 import { graphGet } from '@/server/connectors/meta';
 import { getOrgStats } from '@/server/connectors/linkedin';
+import { getProfileStats } from '@/server/connectors/snapchat';
 import { getCached } from '@/server/cache';
 
 // GET /api/metrics — derived audience/performance metrics per connected account,
@@ -50,6 +51,17 @@ async function linkedinMetrics(acc: any) {
   const m: any = { platform: 'linkedin', name: acc.name, followers_count: acc.followers ?? 0 };
   try {
     const stats = await getOrgStats(acc);
+    if (typeof stats.followers === 'number') m.followers_count = stats.followers;
+  } catch (e) {
+    m.error = (e as Error).message;
+  }
+  return m;
+}
+
+async function snapchatMetrics(acc: any) {
+  const m: any = { platform: 'snapchat', name: acc.name, followers_count: acc.followers ?? 0 };
+  try {
+    const stats = await getProfileStats(acc);
     if (typeof stats.followers === 'number') m.followers_count = stats.followers;
   } catch (e) {
     m.error = (e as Error).message;
@@ -110,18 +122,21 @@ async function computeMetrics() {
   const facebook = [];
   const instagram = [];
   const linkedin = [];
+  const snapchat = [];
   for (const acc of accounts) {
     if (acc.platform === 'facebook') facebook.push(await facebookMetrics(acc));
     if (acc.platform === 'instagram') instagram.push(await instagramMetrics(acc));
     if (acc.platform === 'linkedin') linkedin.push(await linkedinMetrics(acc));
+    if (acc.platform === 'snapchat') snapchat.push(await snapchatMetrics(acc));
   }
-  const all = [...facebook, ...instagram, ...linkedin];
+  const all = [...facebook, ...instagram, ...linkedin, ...snapchat];
   const general = {
     general_follower_count: all.reduce((s, m) => s + (m.followers_count ?? 0), 0),
     connected_accounts: all.length,
+    // snapchat (like linkedin) has no engagement_rate_percentage; the null-filter naturally excludes it
     avg_engagement_rate_percentage: pct(avg(all.map((m) => m.engagement_rate_percentage).filter((v): v is number => v != null))),
     total_avg_likes: all.reduce((s, m) => s + (m.avg_likes ?? 0), 0),
     total_avg_comments: all.reduce((s, m) => s + (m.avg_comments ?? 0), 0),
   };
-  return { general, facebook, instagram, linkedin };
+  return { general, facebook, instagram, linkedin, snapchat };
 }
