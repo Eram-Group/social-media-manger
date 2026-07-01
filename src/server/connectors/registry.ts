@@ -2,11 +2,13 @@ import { TPlatformId } from '@/mock-server/platforms';
 import { SocialConnector } from './types';
 import { facebookConnector } from './facebook';
 import { instagramConnector } from './instagram';
+import { linkedinConnector } from './linkedin';
 
 // Platform id -> connector. Add LinkedIn, X, TikTok, Snapchat here as they land.
 const CONNECTORS: Partial<Record<TPlatformId, SocialConnector>> = {
   facebook: facebookConnector,
   instagram: instagramConnector,
+  linkedin: linkedinConnector,
 };
 
 export function getConnector(platform: string): SocialConnector {
