@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Social Connectors — Analyzer · EPCC</title>
+<style>
+  @page { size: A4; margin: 16mm 14mm; }
+  :root{
+    --primary:#025FCC; --primary-900:#01397A; --primary-050:#EBF5FF;
+    --green:#00A87E; --greenbg:#E6F7F0; --amber:#B7791F; --amberbg:#FEF4E2;
+    --red:#B23127; --redbg:#FCE9E7; --paid:#025FCC; --paidbg:#E6EFFB;
+    --ink:#0F2540; --muted:#5B6B82; --line:#E3E8F0; --card:#FFFFFF;
+  }
+  *{box-sizing:border-box}
+  html{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  body{margin:0;font-family:"Helvetica Neue",Arial,"Segoe UI",sans-serif;color:var(--ink);font-size:12px;line-height:1.5}
+  .ar{font-family:"Cairo","Tajawal","Geeza Pro","Segoe UI",Tahoma,Arial,sans-serif;direction:rtl;text-align:right}
+  .page{page-break-after:always}
+  .page:last-child{page-break-after:auto}
+  h1{font-size:26px;margin:0;letter-spacing:-.02em;color:var(--primary-900)}
+  h2{font-size:16px;margin:22px 0 10px;color:var(--primary-900);border-bottom:2px solid var(--primary-050);padding-bottom:5px}
+  h3{font-size:13px;margin:0 0 3px}
+  p{margin:0 0 9px}
+  .muted{color:var(--muted)}
+  .small{font-size:11px}
+  /* cover */
+  .cover{display:flex;flex-direction:column;justify-content:center;min-height:245mm}
+  .band{background:linear-gradient(135deg,var(--primary) 0%,var(--primary-900) 100%);color:#fff;border-radius:16px;padding:40px 34px;position:relative;overflow:hidden}
+  .band:after{content:"";position:absolute;right:-40px;top:-40px;width:180px;height:180px;background:rgba(255,255,255,.10);border-radius:50%}
+  .band .tag{display:inline-block;font-size:11px;font-weight:600;background:rgba(255,255,255,.18);padding:5px 12px;border-radius:999px;margin-bottom:18px}
+  .band h1{color:#fff;font-size:34px;line-height:1.15}
+  .band .sub{font-size:15px;opacity:.9;margin-top:10px}
+  .meta{display:flex;gap:26px;flex-wrap:wrap;margin-top:26px;color:var(--muted);font-size:12px}
+  .meta b{color:var(--ink)}
+  /* pills */
+  .pill{display:inline-block;font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:999px;white-space:nowrap}
+  .live{color:var(--green);background:var(--greenbg)}
+  .built{color:var(--amber);background:var(--amberbg)}
+  .no{color:var(--red);background:var(--redbg)}
+  .paid{color:var(--paid);background:var(--paidbg)}
+  /* tables */
+  table{width:100%;border-collapse:collapse;font-size:11px;margin-top:6px}
+  th,td{border:1px solid var(--line);padding:7px 9px;vertical-align:top;text-align:left}
+  .ar th,.ar td{text-align:right}
+  thead th{background:var(--primary-050);color:var(--primary-900);font-size:10.5px;text-transform:uppercase;letter-spacing:.03em}
+  td .plat{font-weight:700;color:var(--ink)}
+  .kv{width:34%}
+  /* summary cards */
+  .grid{display:flex;gap:12px;flex-wrap:wrap;margin-top:8px}
+  .kpi{flex:1;min-width:120px;border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:var(--card)}
+  .kpi .n{font-size:24px;font-weight:800;color:var(--primary-900)}
+  .kpi .l{font-size:11px;color:var(--muted);margin-top:2px}
+  .callout{background:var(--primary-050);border:1px solid #D6E4F7;border-radius:10px;padding:11px 14px;margin:10px 0}
+  .foot{margin-top:20px;color:var(--muted);font-size:10px;border-top:1px solid var(--line);padding-top:8px}
+  ul{margin:4px 0 10px;padding-inline-start:18px}
+  li{margin:2px 0}
+</style>
+</head>
+<body>
+
+<!-- ==================== COVER (EN) ==================== -->
+<section class="page cover">
+  <div class="band">
+    <span class="tag">Eastern Province Chamber of Commerce · غرفة الشرقية</span>
+    <h1>Social Connectors — Analyzer</h1>
+    <div class="sub">Platform access &amp; developer delivery report — how each network grants API access, and what has been built.</div>
+    <div class="sub" style="margin-top:6px">تقرير وصول المنصّات وتسليم المطوّر — كيف تمنح كل منصّة صلاحية الوصول، وما الذي تم تنفيذه.</div>
+  </div>
+  <div class="meta">
+    <span><b>Prepared for</b><br>EPCC · Marketing &amp; Digital</span>
+    <span><b>Prepared by</b><br>Development Team</span>
+    <span><b>Date</b><br>2 July 2026</span>
+    <span><b>Scope</b><br>Facebook · Instagram · LinkedIn · Snapchat · X · TikTok</span>
+    <span><b>Status</b><br>6 connectors code-complete</span>
+  </div>
+  <div class="callout" style="margin-top:30px">
+    <b>One-line summary:</b> All six platform connectors are built and tested (build-green). Facebook &amp; Instagram
+    are live; LinkedIn personal-profile posting is live; Snapchat, X and TikTok are ready and waiting only on each
+    platform's own access approval. The remaining work is <b>platform approvals</b>, not development.
+  </div>
+</section>
+
+<!-- ==================== EN BODY ==================== -->
+<section class="page">
+  <h1 style="font-size:20px">1 · Executive summary</h1>
+  <p class="muted">How to read this report: every social network controls its own “door” to API access — some are open,
+  some need a paid plan, some need a formal review/audit. The developer has built the full integration for all six
+  networks; going live now depends on passing each platform's access gate.</p>
+
+  <div class="grid">
+    <div class="kpi"><div class="n">6 / 6</div><div class="l">Connectors built &amp; tested</div></div>
+    <div class="kpi"><div class="n">2</div><div class="l">Live now (Facebook, Instagram)</div></div>
+    <div class="kpi"><div class="n">1</div><div class="l">Partly live (LinkedIn personal)</div></div>
+    <div class="kpi"><div class="n">3</div><div class="l">Ready, pending platform gate</div></div>
+  </div>
+
+  <h2>Delivery status at a glance</h2>
+  <table>
+    <thead><tr><th>Platform</th><th>Publish</th><th>Analytics read-back</th><th>Status</th><th>What unlocks “live”</th></tr></thead>
+    <tbody>
+      <tr><td class="plat">Facebook</td><td>Text · photo · video · reel · story · scheduling · delete</td><td>Engagement, page views, video views, reactions, follows</td><td><span class="pill live">Live</span></td><td>— (Meta App Review already approved)</td></tr>
+      <tr><td class="plat">Instagram</td><td>Image · video · reel · story</td><td>Reach, interactions, saves + demographics (age/gender/geo)</td><td><span class="pill live">Live</span></td><td>— (via the linked Facebook Page)</td></tr>
+      <tr><td class="plat">LinkedIn</td><td>Text · image · multi-image · video (personal profile)</td><td>Followers; post metrics after Company-Page approval</td><td><span class="pill live">Personal live</span></td><td>Company-Page posting + analytics: <b>Community Management API</b> approval</td></tr>
+      <tr><td class="plat">Snapchat</td><td>Story · Saved Story · Spotlight · delete</td><td>Views, screenshots, subscribers</td><td><span class="pill built">Built</span></td><td>Snap <b>Marketing-API access</b> approval</td></tr>
+      <tr><td class="plat">X (Twitter)</td><td>Text · up to 4 images · 1 video · delete</td><td>Likes, retweets, replies, impressions, followers</td><td><span class="pill built">Built</span></td><td><b>Paid API tier</b> (Basic ≈ $200/mo)</td></tr>
+      <tr><td class="plat">TikTok</td><td>Video &amp; photo (Direct Post)</td><td>Views, likes, comments, shares, followers</td><td><span class="pill built">Built</span></td><td><b>Content-Posting audit</b> (~1–2 weeks)</td></tr>
+    </tbody>
+  </table>
+  <p class="small muted"><b>Live</b> = working with real accounts today. &nbsp; <b>Built</b> = fully developed &amp; tested; switches on the moment the platform grants access.</p>
+</section>
+
+<section class="page">
+  <h1 style="font-size:20px">2 · How each platform grants access · &amp; what was delivered</h1>
+
+  <h2>Facebook &amp; Instagram (Meta)</h2>
+  <table>
+    <tr><td class="kv"><b>How the platform grants access</b></td><td>Meta “App Review”: the app requests permissions (publishing, insights) and Meta approves them for the Chamber's verified Business account. Facebook Pages issue a long-lived token; Instagram is reached through the linked Page. <b>Already approved.</b></td></tr>
+    <tr><td class="kv"><b>What the developer delivered</b></td><td>Full OAuth connect, publishing (all post types, native scheduling on Facebook), delete, and analytics read-back (engagement, reach, video views, reactions, and Instagram demographics for accounts with 100+ followers). <b>Live in production.</b></td></tr>
+  </table>
+
+  <h2>LinkedIn</h2>
+  <table>
+    <tr><td class="kv"><b>How the platform grants access</b></td><td>Two separate doors: (1) <b>Sign In with OpenID Connect</b> + <b>Share on LinkedIn</b> products — self-serve, instant — enable posting to a <b>personal profile</b>. (2) Posting to a <b>Company Page</b> plus page analytics require the <b>Community Management API</b>, a formal approval tied to a verified company page and legal entity.</td></tr>
+    <tr><td class="kv"><b>What the developer delivered</b></td><td>OAuth2 + token refresh, personal-profile publishing (text, image, multi-image, video), delete, optional draft mode, and follower read-back. Company-Page publishing and analytics are fully coded and switch on once the Community Management API is approved. <b>Personal profile live; Company Page pending approval.</b></td></tr>
+  </table>
+
+  <h2>Snapchat</h2>
+  <table>
+    <tr><td class="kv"><b>How the platform grants access</b></td><td>Requires a Snap <b>Business account</b>, a <b>Public Profile</b>, and formal <b>Marketing-API access approval</b>; the OAuth app is created inside Snap Business Manager.</td></tr>
+    <tr><td class="kv"><b>What the developer delivered</b></td><td>OAuth2 + refresh, publishing to Stories, Saved Stories and Spotlight, delete, and profile/subscriber stats. <b>Built &amp; tested; awaiting Snap approval to go live.</b></td></tr>
+  </table>
+
+  <h2>X (Twitter)</h2>
+  <table>
+    <tr><td class="kv"><b>How the platform grants access</b></td><td>Requires a developer account and a <b>paid API tier</b> (Basic ≈ $200/month) to post; the free tier is write-limited. Login uses OAuth 2.0 with PKCE.</td></tr>
+    <tr><td class="kv"><b>What the developer delivered</b></td><td>OAuth2 + PKCE + refresh, publishing (text, up to 4 images or 1 video), delete, and read-back of per-tweet metrics and follower count. <b>Built &amp; tested; needs the paid tier to go live.</b></td></tr>
+  </table>
+
+  <h2>TikTok</h2>
+  <table>
+    <tr><td class="kv"><b>How the platform grants access</b></td><td>Requires a developer app and passing TikTok's <b>Content-Posting audit</b> (~1–2 weeks). Until approved, posts are forced to private (SELF_ONLY).</td></tr>
+    <tr><td class="kv"><b>What the developer delivered</b></td><td>OAuth2 + refresh, Direct Post for video and photo (pulled from a hosted URL), status polling, and read-back of per-video stats and followers. <b>Built &amp; tested; needs the audit to publish publicly.</b></td></tr>
+  </table>
+</section>
+
+<section class="page">
+  <h1 style="font-size:20px">3 · Content discovery (hashtag search)</h1>
+  <p class="muted">“Discovery” = searching public posts by hashtag/topic to see what content performs around EPCC's themes,
+  without touching competitor pages. Only Instagram offers this as a public API.</p>
+  <table>
+    <thead><tr><th>Platform</th><th>Hashtag search</th><th>Method</th><th>What the client gets / limit</th></tr></thead>
+    <tbody>
+      <tr><td class="plat">Instagram</td><td><span class="pill live">Works today</span></td><td>Instagram Hashtag Search API</td><td>Top &amp; recent public posts + likes/comments · limit 30 hashtags / 7 days · author hidden by Meta</td></tr>
+      <tr><td class="plat">X (Twitter)</td><td><span class="pill paid">Paid tier</span></td><td>X API v2 — Recent Search</td><td>Recent tweets for a hashtag + public metrics · needs Basic tier (≈ $200/mo)</td></tr>
+      <tr><td class="plat">Facebook</td><td><span class="pill no">Not available</span></td><td>—</td><td>No hashtag/content search API</td></tr>
+      <tr><td class="plat">LinkedIn</td><td><span class="pill no">Not available</span></td><td>—</td><td>No public content search API</td></tr>
+      <tr><td class="plat">TikTok</td><td><span class="pill no">Not available</span></td><td>Research API (restricted)</td><td>Only via approved academic Research API</td></tr>
+      <tr><td class="plat">Snapchat</td><td><span class="pill no">Not available</span></td><td>—</td><td>No public content search API</td></tr>
+    </tbody>
+  </table>
+
+  <h2>4 · What this means for EPCC</h2>
+  <ul>
+    <li><b>Development is done.</b> All six connectors are code-complete and tested; nothing further is needed from the developer to publish and read analytics.</li>
+    <li><b>The remaining gates belong to the platforms</b>, and each is a business/approval action: LinkedIn Community-Management approval, Snap Marketing-API approval, an X paid subscription, and the TikTok audit.</li>
+    <li><b>Every connected platform</b> reports followers, follower growth and post engagement. Instagram is the richest (full demographics); Facebook adds reaction breakdowns.</li>
+    <li><b>Recommended next steps:</b> start the TikTok audit early (longest lead time), decide on the X paid tier, and submit the LinkedIn Community-Management request for Company-Page posting.</li>
+  </ul>
+  <div class="foot">EPCC · Social Connectors — Analyzer · English section · Generated 2 July 2026.</div>
+</section>
+
+<!-- ==================== AR COVER ==================== -->
+<section class="page cover ar">
+  <div class="band">
+    <span class="tag">غرفة الشرقية · Eastern Province Chamber of Commerce</span>
+    <h1>محلّل موصّلات التواصل الاجتماعي</h1>
+    <div class="sub">تقرير وصول المنصّات وتسليم المطوّر — كيف تمنح كل شبكة صلاحية الوصول إلى واجهتها البرمجية، وما الذي تم تنفيذه.</div>
+  </div>
+  <div class="meta" style="justify-content:flex-start">
+    <span><b>مُعدّ لصالح</b><br>غرفة الشرقية · التسويق والتحول الرقمي</span>
+    <span><b>إعداد</b><br>فريق التطوير</span>
+    <span><b>التاريخ</b><br>٢ يوليو ٢٠٢٦</span>
+    <span><b>النطاق</b><br>فيسبوك · إنستغرام · لينكدإن · سناب شات · إكس · تيك توك</span>
+  </div>
+  <div class="callout" style="margin-top:30px">
+    <b>الخلاصة في سطر:</b> تم بناء واختبار الموصّلات الستّة جميعها. فيسبوك وإنستغرام قيد التشغيل، ونشر الملف الشخصي على
+    لينكدإن مُفعّل، بينما سناب شات وإكس وتيك توك جاهزة وتنتظر فقط موافقة كل منصّة على منح الوصول. العمل المتبقّي هو
+    <b>موافقات المنصّات</b> وليس التطوير.
+  </div>
+</section>
+
+<!-- ==================== AR BODY ==================== -->
+<section class="page ar">
+  <h1 style="font-size:20px">١ · الملخّص التنفيذي</h1>
+  <p class="muted">كيف تقرأ هذا التقرير: كل شبكة تواصل تتحكّم في «بابها» الخاص للوصول إلى الواجهة البرمجية — بعضها مفتوح،
+  وبعضها يتطلّب اشتراكًا مدفوعًا، وبعضها يتطلّب مراجعة أو تدقيقًا رسميًا. أنجز المطوّر التكامل الكامل للشبكات الستّ،
+  والانتقال إلى التشغيل المباشر يعتمد الآن على اجتياز بوابة الوصول لكل منصّة.</p>
+
+  <div class="grid">
+    <div class="kpi"><div class="n">٦ / ٦</div><div class="l">موصّلات مبنية ومختبَرة</div></div>
+    <div class="kpi"><div class="n">٢</div><div class="l">قيد التشغيل (فيسبوك، إنستغرام)</div></div>
+    <div class="kpi"><div class="n">١</div><div class="l">مُفعّل جزئيًا (لينكدإن الشخصي)</div></div>
+    <div class="kpi"><div class="n">٣</div><div class="l">جاهزة بانتظار موافقة المنصّة</div></div>
+  </div>
+
+  <h2>حالة التسليم بلمحة</h2>
+  <table>
+    <thead><tr><th>المنصّة</th><th>النشر</th><th>قراءة التحليلات</th><th>الحالة</th><th>ما الذي يُفعّل التشغيل</th></tr></thead>
+    <tbody>
+      <tr><td class="plat">فيسبوك</td><td>نص · صورة · فيديو · ريل · قصة · جدولة · حذف</td><td>التفاعل، مشاهدات الصفحة والفيديو، التفاعلات، المتابعون</td><td><span class="pill live">قيد التشغيل</span></td><td>— (تمت موافقة Meta App Review)</td></tr>
+      <tr><td class="plat">إنستغرام</td><td>صورة · فيديو · ريل · قصة</td><td>الوصول، التفاعلات، الحفظ + التركيبة السكانية</td><td><span class="pill live">قيد التشغيل</span></td><td>— (عبر صفحة فيسبوك المرتبطة)</td></tr>
+      <tr><td class="plat">لينكدإن</td><td>نص · صورة · صور متعددة · فيديو (ملف شخصي)</td><td>المتابعون؛ ومقاييس المنشورات بعد اعتماد صفحة الشركة</td><td><span class="pill live">الشخصي مُفعّل</span></td><td>نشر صفحة الشركة والتحليلات: اعتماد <b>Community Management API</b></td></tr>
+      <tr><td class="plat">سناب شات</td><td>قصة · قصة محفوظة · Spotlight · حذف</td><td>المشاهدات، لقطات الشاشة، المشتركون</td><td><span class="pill built">جاهز</span></td><td>اعتماد <b>Marketing-API</b> من سناب</td></tr>
+      <tr><td class="plat">إكس (تويتر)</td><td>نص · حتى ٤ صور · فيديو واحد · حذف</td><td>الإعجابات، إعادة النشر، الردود، الظهور، المتابعون</td><td><span class="pill built">جاهز</span></td><td><b>الاشتراك المدفوع</b> (Basic ≈ ٢٠٠$ شهريًا)</td></tr>
+      <tr><td class="plat">تيك توك</td><td>فيديو وصورة (نشر مباشر)</td><td>المشاهدات، الإعجابات، التعليقات، المشاركات، المتابعون</td><td><span class="pill built">جاهز</span></td><td><b>تدقيق نشر المحتوى</b> (~١–٢ أسبوع)</td></tr>
+    </tbody>
+  </table>
+  <p class="small muted"><b>قيد التشغيل</b> = يعمل بحسابات حقيقية اليوم. &nbsp; <b>جاهز</b> = مبني ومختبَر بالكامل، ويُفعّل فور منح المنصّة الوصول.</p>
+</section>
+
+<section class="page ar">
+  <h1 style="font-size:20px">٢ · كيف تمنح كل منصّة الوصول · وما الذي تم تسليمه</h1>
+
+  <h2>فيسبوك وإنستغرام (Meta)</h2>
+  <table>
+    <tr><td class="kv"><b>كيف تمنح المنصّة الوصول</b></td><td>مراجعة تطبيق Meta: يطلب التطبيق الصلاحيات (النشر، التحليلات) وتعتمدها Meta لحساب الأعمال الموثّق للغرفة. تُصدر صفحات فيسبوك رمزًا طويل الأمد، ويُصل إلى إنستغرام عبر الصفحة المرتبطة. <b>تمت الموافقة مسبقًا.</b></td></tr>
+    <tr><td class="kv"><b>ما الذي سلّمه المطوّر</b></td><td>ربط OAuth كامل، النشر بكل أنواعه مع الجدولة على فيسبوك، الحذف، وقراءة التحليلات (التفاعل، الوصول، مشاهدات الفيديو، التفاعلات، والتركيبة السكانية لإنستغرام للحسابات التي تتجاوز ١٠٠ متابع). <b>يعمل في الإنتاج.</b></td></tr>
+  </table>
+
+  <h2>لينكدإن</h2>
+  <table>
+    <tr><td class="kv"><b>كيف تمنح المنصّة الوصول</b></td><td>بابان منفصلان: (١) منتجا <b>Sign In with OpenID Connect</b> و<b>Share on LinkedIn</b> — ذاتيّان وفوريّان — يتيحان النشر على <b>الملف الشخصي</b>. (٢) النشر على <b>صفحة الشركة</b> وتحليلاتها يتطلّبان <b>Community Management API</b>، وهو اعتماد رسمي مرتبط بصفحة شركة موثّقة وكيان قانوني.</td></tr>
+    <tr><td class="kv"><b>ما الذي سلّمه المطوّر</b></td><td>OAuth2 مع تجديد الرمز، النشر على الملف الشخصي (نص، صورة، صور متعددة، فيديو)، الحذف، وضع المسودّة الاختياري، وقراءة عدد المتابعين. نشر صفحة الشركة وتحليلاتها مُنفّذان بالكامل ويُفعّلان عند اعتماد الواجهة. <b>الشخصي مُفعّل؛ صفحة الشركة بانتظار الاعتماد.</b></td></tr>
+  </table>
+
+  <h2>سناب شات</h2>
+  <table>
+    <tr><td class="kv"><b>كيف تمنح المنصّة الوصول</b></td><td>يتطلّب <b>حساب أعمال</b> على سناب، و<b>ملفًا عامًا</b>، واعتماد <b>الوصول إلى Marketing-API</b> رسميًا؛ ويُنشأ تطبيق OAuth داخل Snap Business Manager.</td></tr>
+    <tr><td class="kv"><b>ما الذي سلّمه المطوّر</b></td><td>OAuth2 مع التجديد، النشر على القصص والقصص المحفوظة وSpotlight، الحذف، وإحصاءات الملف والمشتركين. <b>مبني ومختبَر بانتظار موافقة سناب.</b></td></tr>
+  </table>
+
+  <h2>إكس (تويتر)</h2>
+  <table>
+    <tr><td class="kv"><b>كيف تمنح المنصّة الوصول</b></td><td>يتطلّب حساب مطوّر و<b>اشتراكًا مدفوعًا</b> (Basic ≈ ٢٠٠$ شهريًا) للنشر؛ الطبقة المجانية محدودة للكتابة. تسجيل الدخول عبر OAuth 2.0 مع PKCE.</td></tr>
+    <tr><td class="kv"><b>ما الذي سلّمه المطوّر</b></td><td>OAuth2 + PKCE مع التجديد، النشر (نص، حتى ٤ صور أو فيديو واحد)، الحذف، وقراءة مقاييس التغريدة وعدد المتابعين. <b>مبني ومختبَر بانتظار الاشتراك المدفوع.</b></td></tr>
+  </table>
+
+  <h2>تيك توك</h2>
+  <table>
+    <tr><td class="kv"><b>كيف تمنح المنصّة الوصول</b></td><td>يتطلّب تطبيق مطوّر واجتياز <b>تدقيق نشر المحتوى</b> من تيك توك (~١–٢ أسبوع). وحتى الاعتماد تكون المنشورات خاصّة.</td></tr>
+    <tr><td class="kv"><b>ما الذي سلّمه المطوّر</b></td><td>OAuth2 مع التجديد، النشر المباشر للفيديو والصور (سحب من رابط مُستضاف)، متابعة الحالة، وقراءة إحصاءات الفيديو والمتابعين. <b>مبني ومختبَر بانتظار التدقيق للنشر العلني.</b></td></tr>
+  </table>
+</section>
+
+<section class="page ar">
+  <h1 style="font-size:20px">٣ · اكتشاف المحتوى (البحث بالوسوم)</h1>
+  <p class="muted">«الاكتشاف» = البحث في المنشورات العامة عبر الوسوم/المواضيع لمعرفة المحتوى الأكثر تفاعلًا حول اهتمامات
+  الغرفة دون المساس بصفحات المنافسين. إنستغرام وحده يتيح ذلك كواجهة برمجية عامة.</p>
+  <table>
+    <thead><tr><th>المنصّة</th><th>البحث بالوسوم</th><th>الطريقة</th><th>ما يحصل عليه العميل / الحدّ</th></tr></thead>
+    <tbody>
+      <tr><td class="plat">إنستغرام</td><td><span class="pill live">متاح اليوم</span></td><td>Instagram Hashtag Search API</td><td>أبرز وأحدث المنشورات العامة + الإعجابات والتعليقات · الحدّ ٣٠ وسمًا / ٧ أيام · يُخفي المؤلف</td></tr>
+      <tr><td class="plat">إكس (تويتر)</td><td><span class="pill paid">اشتراك مدفوع</span></td><td>X API v2 — البحث الحديث</td><td>تغريدات حديثة لوسمٍ ما + المقاييس العامة · يتطلّب اشتراك Basic</td></tr>
+      <tr><td class="plat">فيسبوك</td><td><span class="pill no">غير متاح</span></td><td>—</td><td>لا توجد واجهة بحث بالوسوم/المحتوى</td></tr>
+      <tr><td class="plat">لينكدإن</td><td><span class="pill no">غير متاح</span></td><td>—</td><td>لا توجد واجهة بحث عامة بالمحتوى</td></tr>
+      <tr><td class="plat">تيك توك</td><td><span class="pill no">غير متاح</span></td><td>Research API (مقيّدة)</td><td>عبر واجهة البحث الأكاديمية المعتمدة فقط</td></tr>
+      <tr><td class="plat">سناب شات</td><td><span class="pill no">غير متاح</span></td><td>—</td><td>لا توجد واجهة بحث عامة بالمحتوى</td></tr>
+    </tbody>
+  </table>
+
+  <h2>٤ · ماذا يعني ذلك لغرفة الشرقية</h2>
+  <ul>
+    <li><b>التطوير مُنجَز.</b> جميع الموصّلات الستّة مكتملة برمجيًا ومختبَرة؛ ولا يلزم شيء إضافي من المطوّر للنشر وقراءة التحليلات.</li>
+    <li><b>البوابات المتبقّية تخصّ المنصّات</b>، وكلٌّ منها إجراء عمل/اعتماد: اعتماد لينكدإن، واعتماد سناب، واشتراك إكس المدفوع، وتدقيق تيك توك.</li>
+    <li><b>كل منصّة متصلة</b> تُبلّغ عن المتابعين ونموّهم وتفاعل المنشورات. إنستغرام الأغنى (تركيبة سكانية كاملة)، ويضيف فيسبوك تفصيل التفاعلات.</li>
+    <li><b>الخطوات المقترحة:</b> بدء تدقيق تيك توك مبكرًا (أطول مدة انتظار)، وحسم اشتراك إكس المدفوع، وتقديم طلب Community Management لصفحة لينكدإن.</li>
+  </ul>
+  <div class="foot">غرفة الشرقية · محلّل موصّلات التواصل الاجتماعي · القسم العربي · صدر في ٢ يوليو ٢٠٢٦.</div>
+</section>
+
+</body>
+</html>
