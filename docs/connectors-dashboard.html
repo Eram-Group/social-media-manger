@@ -129,6 +129,21 @@
       Facebook gives reaction breakdowns, and LinkedIn/Snapchat/X/TikTok unlock their extra data only after each platform
       grants API access (LinkedIn approval · Snap Marketing-API approval · X paid tier · TikTok audit).
     </div>
+
+    <h2>Content discovery — hashtag &amp; topic search</h2>
+    <div class="note">
+      "Discovery" = searching <b>public posts by hashtag/topic</b> to see what content is performing around EPCC's
+      themes (events, sectors, region) — <b>without</b> touching competitor pages (which Meta gates behind App Review).
+      Only <b>Instagram</b> offers this today; the table below is the honest, per-platform picture.
+    </div>
+    <div style="overflow:auto"><table id="discovery"></table></div>
+    <div class="foot" style="margin-top:12px;text-align:left">
+      Bottom line for the client: <b>hashtag discovery is Instagram-only</b> — Facebook, LinkedIn, TikTok and Snapchat
+      simply do not expose a public "search posts by hashtag" API. <b>X (Twitter)</b> can be added (v2 Recent Search),
+      but only once the paid Basic tier (~$200/mo) is active — the same gate as X publishing. Instagram's search is
+      capped by Meta at <b>30 unique hashtags / 7 days</b> and hides the author's username on results; EPCC caches
+      results for 6 hours to stay within the limit.
+    </div>
   </section>
 
   <div class="foot">Generated artifact · mirrors the connectors-*.md docs on <code>dev</code></div>
@@ -240,6 +255,26 @@ const CLR={
   'p':{bg:'#E6EFFB',fg:'#025FCC',t:'Paid'},
 };
 amatrix.innerHTML=`<thead><tr><th>Data type</th>${C.map(c=>`<th>${c.name.split(' ')[0]}</th>`).join('')}</tr></thead><tbody>${AD.map(([l,row])=>`<tr><td>${l}</td>${C.map(c=>{const k=row[c.key],cl=CLR[k];return `<td class="acell" style="background:${cl.bg};color:${cl.fg}" title="${MT[k]}"><span class="ci">${M[k]}</span><span class="cl">${cl.t}</span></td>`;}).join('')}</tr>`).join('')}</tbody>`;
+
+// ---- content discovery (hashtag/topic search) ----
+// state: 1 = works today, 'p' = possible but needs paid tier, 'x' = not available
+const DISC=[
+  ['instagram','Instagram', 1,  'Instagram Hashtag Search API', 'Top & recent public posts per hashtag + likes/comments', '30 hashtags / 7 days · author name hidden by Meta'],
+  ['x','X (Twitter)',        'p','X API v2 — Recent Search',      'Recent tweets matching a hashtag/topic + public metrics','Needs paid Basic tier (~$200/mo)'],
+  ['facebook','Facebook',    'x','—',                             'No hashtag / content search API',                        'Platform limit — not offered'],
+  ['linkedin','LinkedIn',    'x','—',                             'No public content / hashtag search API',                 'Platform limit — not offered'],
+  ['tiktok','TikTok',        'x','Research API (restricted)',     'Discovery only via approved academic Research API',       'Not available to businesses'],
+  ['snapchat','Snapchat',    'x','—',                             'No public content search API',                           'Platform limit — not offered'],
+];
+const DTXT={1:'Works today',p:'Needs paid tier',x:'Not available'};
+discovery.innerHTML=`<thead><tr><th>Platform</th><th>Hashtag search</th><th>API / method</th><th>What the client gets</th><th>Limit / gate</th></tr></thead>`
+  +`<tbody>${DISC.map(([key,name,st,api,gets,lim])=>{const cl=CLR[st];return `<tr>`
+    +`<td>${name}</td>`
+    +`<td class="acell" style="background:${cl.bg};color:${cl.fg}" title="${MT[st]}"><span class="ci">${M[st]}</span><span class="cl">${DTXT[st]}</span></td>`
+    +`<td style="text-align:left">${api}</td>`
+    +`<td style="text-align:left;color:var(--muted)">${gets}</td>`
+    +`<td style="text-align:left;color:var(--muted)">${lim}</td>`
+  +`</tr>`;}).join('')}</tbody>`;
 </script>
 </body>
 </html>
