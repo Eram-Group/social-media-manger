@@ -25,18 +25,38 @@ export interface InboxItem {
   replies: InboxReply[];
 }
 
+// Surfaced to the client so a broken/expired token is visible instead of
+// looking identical to "this account simply has no comments".
+export interface InboxError {
+  platform: string;
+  accountId: string;
+  accountName?: string;
+  message: string;
+}
+
+interface InboxResult {
+  items: InboxItem[];
+  errors: InboxError[];
+}
+
 // GET /api/inbox — real comments on the connected Pages' recent posts.
 // (Replying requires the pages_manage_engagement permission, which isn't granted
 // yet — so this is read-only for now, with a link to reply on the platform.)
 export async function GET(req: NextRequest) {
   const force = new URL(req.url).searchParams.get('refresh') === '1';
   const cached = await getCached('inbox', 10 * 60, fetchInbox, force);
-  return NextResponse.json({ items: cached.data, cachedAt: cached.cachedAt, fromCache: cached.fromCache });
+  return NextResponse.json({
+    items: cached.data.items,
+    errors: cached.data.errors,
+    cachedAt: cached.cachedAt,
+    fromCache: cached.fromCache,
+  });
 }
 
-async function fetchInbox(): Promise<InboxItem[]> {
+async function fetchInbox(): Promise<InboxResult> {
   const accounts = await listAccounts();
   const items: InboxItem[] = [];
+  const errors: InboxError[] = [];
 
   for (const acc of accounts) {
     // Instagram comments come from each media's /comments edge.
@@ -73,7 +93,9 @@ async function fetchInbox(): Promise<InboxItem[]> {
           }
         }
       } catch (e) {
-        console.warn(`[inbox] IG failed for ${acc.accountId}:`, (e as Error).message);
+        const message = (e as Error).message;
+        console.warn(`[inbox] IG failed for ${acc.accountId}:`, message);
+        errors.push({ platform: 'instagram', accountId: acc.accountId, accountName: acc.name, message });
       }
       continue;
     }
@@ -110,10 +132,12 @@ async function fetchInbox(): Promise<InboxItem[]> {
         }
       }
     } catch (e) {
-      console.warn(`[inbox] failed for ${acc.accountId}:`, (e as Error).message);
+      const message = (e as Error).message;
+      console.warn(`[inbox] failed for ${acc.accountId}:`, message);
+      errors.push({ platform: acc.platform, accountId: acc.accountId, accountName: acc.name, message });
     }
   }
 
   items.sort((a, b) => b.time.localeCompare(a.time));
-  return items;
+  return { items, errors };
 }
