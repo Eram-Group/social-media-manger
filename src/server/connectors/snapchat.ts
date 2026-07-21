@@ -84,33 +84,32 @@ export async function ensureFreshToken(account: ConnectedAccount): Promise<Conne
 }
 
 // ── Public Profile discovery ─────────────────────────────────────────────────
-// VERIFY endpoint: list the orgs the user can access, then the public profiles under them.
 export async function listPublicProfiles(token: string): Promise<{ id: string; name: string; orgId: string }[]> {
   const out: { id: string; name: string; orgId: string }[] = [];
   // Deliberately NOT swallowing this: a failure here used to surface as a bare
   // `no_profiles`, which is indistinguishable from "this org genuinely has no
   // public profiles" and hides the real Snapchat error (scope, permission, path).
-  const orgs = await snapProfileGet<{ organizations: { organization: { id: string; name?: string } }[] }>(token, '/me/organizations');
-  const orgList = orgs.organizations ?? [];
-  if (!orgList.length) {
-    throw new Error('Snapchat returned no organizations for this login. The account must belong to a Snapchat Business organization.');
+  // Verified against a live token:
+  //   adsapi      /me                                  -> 200, carries organization_id
+  //   adsapi      /me/organizations                    -> 404 (does not exist)
+  //   adsapi      /organizations/{id}/public_profiles  -> 404 (wrong host)
+  //   businessapi /organizations/{id}/public_profiles  -> 403 (right host, not allowlisted)
+  // So: take the org id from /me on the ads host, then read profiles from the
+  // business host. 403 here means allowlisting is outstanding, not a bad path.
+  const me = await snapGet<{ me?: { organization_id?: string } }>(token, '/me');
+  const orgId = me.me?.organization_id;
+  if (!orgId) {
+    throw new Error('Snapchat /me returned no organization_id — the login is not a member of a Snapchat organization.');
   }
-  const failures: string[] = [];
-  for (const o of orgList) {
-    const orgId = o.organization.id;
-    try {
-      const pp = await snapProfileGet<{ public_profiles: { public_profile: { id: string; display_name?: string } }[] }>(
-        token, `/organizations/${orgId}/public_profiles`,
-      );
-      for (const p of pp.public_profiles ?? []) {
-        out.push({ id: p.public_profile.id, name: p.public_profile.display_name ?? `Profile ${p.public_profile.id}`, orgId });
-      }
-    } catch (e) {
-      failures.push(`org ${orgId}: ${(e as Error).message}`);
-    }
+
+  const pp = await snapProfileGet<{ public_profiles?: { public_profile: { id: string; display_name?: string } }[] }>(
+    token, `/organizations/${orgId}/public_profiles`,
+  );
+  for (const p of pp.public_profiles ?? []) {
+    out.push({ id: p.public_profile.id, name: p.public_profile.display_name ?? `Profile ${p.public_profile.id}`, orgId });
   }
-  if (!out.length && failures.length) {
-    throw new Error(`Snapchat public-profile lookup failed — ${failures.join(' | ')}`);
+  if (!out.length) {
+    throw new Error(`Snapchat organization ${orgId} exposes no Public Profiles to this app.`);
   }
   return out;
 }
@@ -122,7 +121,10 @@ async function fetchBytes(url: string): Promise<Uint8Array> {
   return new Uint8Array(await res.arrayBuffer());
 }
 
-// Register a media object, upload the bytes, return the media id. VERIFY paths.
+// UNVERIFIED. Snapchat publishes no documented API for posting to a Public
+// Profile — these paths were inferred and return E1002 ("Request URL can not be
+// correctly processed"), i.e. they do not exist. Kept only so the shape is ready
+// if Snap confirms a posting API; do not treat as working.
 async function uploadMedia(account: ConnectedAccount, bytes: Uint8Array, kind: 'IMAGE' | 'VIDEO'): Promise<string> {
   const orgId = (account.meta as Record<string, any>)?.organizationId;
   const created = await snapPost<{ media: { id: string }[] }>(
@@ -218,7 +220,7 @@ export const snapchatConnector: SocialConnector = {
       : (input.format === 'reel' || input.format === 'video') ? 'SPOTLIGHT'
       : 'SAVED_STORY';
 
-    // VERIFY: content-create endpoint + payload per type.
+    // UNVERIFIED — see uploadMedia: no documented Public Profile posting API.
     const created = await snapPost<{ content: { id: string }[] }>(
       account.accessToken, `/public_profiles/${account.accountId}/content`,
       { content: [{ type, media_id: mediaId, caption: input.message ?? '' }] },
@@ -229,7 +231,8 @@ export const snapchatConnector: SocialConnector = {
 
   async deletePost(account: ConnectedAccount, remoteId: string): Promise<void> {
     account = await ensureFreshToken(account);
-    await snapDelete(account.accessToken, `/content/${encodeURIComponent(remoteId)}`); // VERIFY path
+        // UNVERIFIED — no documented delete endpoint for Public Profile content.
+    await snapDelete(account.accessToken, `/content/${encodeURIComponent(remoteId)}`);
   },
 
   async getMetrics(account: ConnectedAccount, remoteId: string): Promise<Record<string, number>> {
