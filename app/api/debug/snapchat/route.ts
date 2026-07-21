@@ -57,11 +57,17 @@ export async function GET() {
   await probe('me_viaAdsHost', () => snapGet(token, '/me'));
   await probe('organizations', () => snapProfileGet(token, '/me/organizations'));
 
-  const orgs = out.organizations as { ok: boolean; data?: any } | undefined;
-  const orgId = orgs?.ok ? orgs.data?.organizations?.[0]?.organization?.id : undefined;
+  // /me on the ads host already carries organization_id — no /me/organizations needed.
+  const meAds = out.me_viaAdsHost as { ok: boolean; data?: any } | undefined;
+  const orgId = meAds?.ok ? meAds.data?.me?.organization_id : undefined;
+  out.organizationId = orgId ?? null;
+
   if (orgId) {
-    out.firstOrgId = orgId;
-    await probe('publicProfiles', () => snapProfileGet(token, `/organizations/${orgId}/public_profiles`));
+    // Which host/path actually serves public profiles for this token?
+    await probe('ads_organization', () => snapGet(token, `/organizations/${orgId}`));
+    await probe('ads_publicProfiles', () => snapGet(token, `/organizations/${orgId}/public_profiles`));
+    await probe('business_publicProfiles', () => snapProfileGet(token, `/organizations/${orgId}/public_profiles`));
+    await probe('ads_adaccounts', () => snapGet(token, `/organizations/${orgId}/adaccounts`));
   }
 
   return NextResponse.json(out);
