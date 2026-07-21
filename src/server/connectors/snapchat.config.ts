@@ -7,10 +7,11 @@ export const SNAP_API_VERSION = 'v1';
 // https://developers.snap.com/api/marketing-api/Public-Profile-API/GetStarted
 export const SNAP_PROFILE_API = 'https://businessapi.snapchat.com';
 
-// Public Profile API requires `snapchat-profile-api`; the marketing scope alone
-// returns permission errors on /organizations/{id}/public_profiles.
-// NOTE: this API is ALLOWLIST ONLY — the OAuth client ID must be allowlisted by
-// a Snap contact before any of these calls succeed, whatever the scopes say.
-export const SNAPCHAT_SCOPES = 'snapchat-marketing-api,snapchat-profile-api';
+// Public Profile API needs `snapchat-profile-api` — but that API is ALLOWLIST
+// ONLY, and Snapchat refuses the whole authorize request ("Failed to load
+// authorization data") when an app asks for a scope it hasn't been granted.
+// So default to the marketing scope and opt in via env once Snap has
+// allowlisted the client ID:  SNAPCHAT_SCOPES="snapchat-marketing-api,snapchat-profile-api"
+export const SNAPCHAT_SCOPES = process.env.SNAPCHAT_SCOPES || 'snapchat-marketing-api';
 
 export type TSnapContentType = 'STORY' | 'SAVED_STORY' | 'SPOTLIGHT';
