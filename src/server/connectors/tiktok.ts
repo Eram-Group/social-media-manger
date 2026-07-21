@@ -1,5 +1,5 @@
 import { ConnectedAccount, PublishInput, PublishResult, SocialConnector } from './types';
-import { TIKTOK, assertTiktokConfigured, redirectUri } from '@/server/env';
+import { APP_BASE_URL, TIKTOK, assertTiktokConfigured, redirectUri } from '@/server/env';
 import { TIKTOK_API, TIKTOK_AUTH, TIKTOK_TOKEN, TIKTOK_SCOPES } from './tiktok.config';
 import { upsertAccounts } from '@/server/store';
 
@@ -51,6 +51,20 @@ export async function ensureFreshToken(account: ConnectedAccount): Promise<Conne
   };
   await upsertAccounts([updated]);
   return updated;
+}
+
+// TikTok's PULL_FROM_URL only accepts media from a verified domain. Vercel Blob
+// serves from a hostname we cannot verify, so route those URLs through
+// {APP_BASE_URL}/api/media/ — the app domain, which IS verified. Non-blob URLs
+// (already on a verified prefix, or user-supplied) are passed through untouched.
+function toVerifiedMediaUrl(url: string): string {
+  try {
+    const u = new URL(url);
+    if (!u.hostname.endsWith('.public.blob.vercel-storage.com')) return url;
+    return `${APP_BASE_URL}/api/media${u.pathname}`;
+  } catch {
+    return url;
+  }
 }
 
 // TikTok issues sandbox credentials with an "sb" prefix on the client key.
@@ -116,7 +130,7 @@ export const tiktokConnector: SocialConnector = {
       const init = await ttPost<{ data?: { publish_id?: string } }>(
         account.accessToken, '/post/publish/video/init/',
         { post_info: { title: input.message ?? '', privacy_level: privacyLevel },
-          source_info: { source: 'PULL_FROM_URL', video_url: videoUrl } },
+          source_info: { source: 'PULL_FROM_URL', video_url: toVerifiedMediaUrl(videoUrl) } },
       );
       publishId = init.data?.publish_id ?? '';
     } else {
@@ -126,7 +140,7 @@ export const tiktokConnector: SocialConnector = {
         account.accessToken, '/post/publish/content/init/',
         { media_type: 'PHOTO', post_mode: 'DIRECT_POST',
           post_info: { title: input.message ?? '', privacy_level: privacyLevel },
-          source_info: { source: 'PULL_FROM_URL', photo_images: photos } },
+          source_info: { source: 'PULL_FROM_URL', photo_images: photos.map(toVerifiedMediaUrl) } },
       );
       publishId = init.data?.publish_id ?? '';
     }
