@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { listAccounts, listHidden, listPublishedPosts } from '@/server/store';
 import { graphGet } from '@/server/connectors/meta';
+import { ttPost, ensureFreshToken as ensureTiktokToken } from '@/server/connectors/tiktok';
 import { getCached } from '@/server/cache';
 import { IPost } from '@/mock-server/posts';
 
@@ -124,6 +125,34 @@ async function fetchPosts(): Promise<IPost[]> {
           }
         } catch (e) {
           console.warn(`[posts/list] IG stories failed:`, (e as Error).message);
+        }
+      } else if (acc.platform === 'tiktok') {
+        // Existing TikTok posts (published outside this app). Needs the
+        // `video.list` scope — accounts connected before that scope was added
+        // will 403 here until they reconnect. Photo-only posts are not returned
+        // by this endpoint; it lists videos.
+        const fresh = await ensureTiktokToken(acc);
+        const r = await ttPost<{ data?: { videos?: any[] } }>(
+          fresh.accessToken,
+          '/video/list/?fields=id,title,video_description,create_time,cover_image_url,share_url,like_count,comment_count,share_count,view_count',
+          { max_count: 20 },
+        );
+        for (const v of r.data?.videos ?? []) {
+          const iso = new Date((v.create_time ?? 0) * 1000).toISOString();
+          posts.push({
+            id: String(v.id),
+            content: v.video_description || v.title || '(no caption)',
+            platforms: ['tiktok'],
+            date: iso.slice(0, 10),
+            time: iso.slice(11, 16),
+            status: 'published',
+            type: 'post',
+            format: 'video',
+            likes: v.like_count ?? 0,
+            comments: v.comment_count ?? 0,
+            media: v.cover_image_url ? [v.cover_image_url] : undefined,
+            remoteRefs: [{ platform: 'tiktok', accountId: acc.accountId, remoteId: String(v.id), url: v.share_url }],
+          });
         }
       }
     } catch (e) {
