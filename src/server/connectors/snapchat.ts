@@ -162,13 +162,24 @@ export const snapchatConnector: SocialConnector = {
       // degraded state rather than aborting: discarding it leaves nothing to
       // diagnose with, since every probe needs a token. The name and
       // discoveryError make the partial state obvious in Accounts.
+      // /me on the ads host works with the marketing scope alone and carries the
+      // org id + username, so the degraded account still gets a real identity
+      // (and an organizationId — without it, publish built /organizations/undefined/…).
+      let organizationId: string | undefined;
+      let username: string | undefined;
+      try {
+        const me = await snapGet<{ me?: { organization_id?: string; snapchat_username?: string } }>(t.access_token, '/me');
+        organizationId = me.me?.organization_id;
+        username = me.me?.snapchat_username;
+      } catch { /* identity is a bonus here; the discovery error below is the real signal */ }
+
       return [{
         platform: 'snapchat' as const,
-        accountId: 'pending-profile-access',
-        name: 'Snapchat (profile access unavailable)',
+        accountId: organizationId ?? 'pending-profile-access',
+        name: username ? `@${username} (profile access pending)` : 'Snapchat (profile access unavailable)',
         accessToken: t.access_token,
         tokenExpiresAt: now + t.expires_in,
-        meta: { refreshToken: t.refresh_token, discoveryError: (e as Error).message },
+        meta: { refreshToken: t.refresh_token, organizationId, discoveryError: (e as Error).message },
       }];
     }
 
@@ -183,6 +194,17 @@ export const snapchatConnector: SocialConnector = {
   },
 
   async publish(account: ConnectedAccount, input: PublishInput): Promise<PublishResult> {
+    // Without a Public Profile there is nothing to post to, and the old code
+    // built `/organizations/undefined/media` and surfaced an opaque Snap E1002.
+    // Fail with the actual reason instead.
+    const discoveryError = (account.meta as Record<string, unknown> | undefined)?.discoveryError;
+    if (discoveryError) {
+      throw new Error(
+        'Snapchat publishing is unavailable: no Public Profile is accessible to this app. '
+        + 'The Public Profile API is allowlist-only — Snap must allowlist the OAuth client ID and grant '
+        + `the snapchat-profile-api scope. (Discovery error: ${discoveryError})`,
+      );
+    }
     account = await ensureFreshToken(account);
     const isVideo = Boolean(input.videoUrl || input.videoBlob);
     const bytes = isVideo
