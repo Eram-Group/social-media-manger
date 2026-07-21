@@ -57,11 +57,19 @@ export async function ensureFreshToken(account: ConnectedAccount): Promise<Conne
 // serves from a hostname we cannot verify, so route those URLs through
 // {APP_BASE_URL}/api/media/ — the app domain, which IS verified. Non-blob URLs
 // (already on a verified prefix, or user-supplied) are passed through untouched.
+// In local dev APP_BASE_URL is http://localhost:3000, which TikTok can neither
+// reach nor verify. MEDIA_BASE_URL lets a developer point media at the deployed
+// (verified) origin instead — the Blob store is shared, so the production proxy
+// serves the very same objects.
+function mediaBaseUrl(): string {
+  return process.env.MEDIA_BASE_URL || APP_BASE_URL;
+}
+
 function toVerifiedMediaUrl(url: string): string {
   try {
     const u = new URL(url);
     if (!u.hostname.endsWith('.public.blob.vercel-storage.com')) return url;
-    return `${APP_BASE_URL}/api/media${u.pathname}`;
+    return `${mediaBaseUrl()}/api/media${u.pathname}`;
   } catch {
     return url;
   }
