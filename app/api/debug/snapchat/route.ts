@@ -8,6 +8,9 @@ import { SNAP_API, SNAP_PROFILE_API, SNAPCHAT_SCOPES } from '@/server/connectors
 // when an account is connected, the raw result of each Public Profile API call
 // so failures are attributable (scope vs allowlist vs membership vs wrong path).
 // Returns no tokens.
+// Never cache: this reports live connection state.
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   const out: Record<string, unknown> = {
     config: {

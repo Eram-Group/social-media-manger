@@ -6,6 +6,9 @@ import { TIKTOK } from '@/server/env';
 // GET /api/debug/tiktok — read-only. Asks TikTok what it believes about the
 // connected account so publish failures can be diagnosed without guessing.
 // Returns no tokens.
+// Never cache: this reports live connection state.
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   const acc = (await listAccounts()).find((a) => a.platform === 'tiktok');
   if (!acc) return NextResponse.json({ error: 'No TikTok account connected.' }, { status: 404 });
