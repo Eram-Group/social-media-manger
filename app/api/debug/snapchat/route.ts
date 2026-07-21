@@ -29,6 +29,9 @@ export async function GET() {
 
   out.connected = true;
   out.account = { accountId: acc.accountId, name: acc.name };
+  // Set when OAuth succeeded but Public Profile discovery did not.
+  const discoveryError = (acc.meta as Record<string, unknown> | undefined)?.discoveryError;
+  if (discoveryError) out.discoveryError = discoveryError;
 
   let token: string;
   try {

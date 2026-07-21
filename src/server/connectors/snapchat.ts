@@ -153,7 +153,25 @@ export const snapchatConnector: SocialConnector = {
   async exchangeCode(code: string): Promise<ConnectedAccount[]> {
     const t = await exchangeCodeForTokens(code);
     const now = Math.floor(Date.now() / 1000);
-    const profiles = await listPublicProfiles(t.access_token);
+
+    let profiles: { id: string; name: string; orgId: string }[];
+    try {
+      profiles = await listPublicProfiles(t.access_token);
+    } catch (e) {
+      // The OAuth half succeeded — we hold a valid token. Persist it in a clearly
+      // degraded state rather than aborting: discarding it leaves nothing to
+      // diagnose with, since every probe needs a token. The name and
+      // discoveryError make the partial state obvious in Accounts.
+      return [{
+        platform: 'snapchat' as const,
+        accountId: 'pending-profile-access',
+        name: 'Snapchat (profile access unavailable)',
+        accessToken: t.access_token,
+        tokenExpiresAt: now + t.expires_in,
+        meta: { refreshToken: t.refresh_token, discoveryError: (e as Error).message },
+      }];
+    }
+
     return profiles.map((p) => ({
       platform: 'snapchat' as const,
       accountId: p.id,
