@@ -67,6 +67,50 @@ function toVerifiedMediaUrl(url: string): string {
   }
 }
 
+// ── FILE_UPLOAD (video) ──────────────────────────────────────────────────────
+// Chunk bounds per TikTok's media transfer guide. A chunk must be >= 5MB and
+// <= 64MB; the FINAL chunk absorbs the remainder and may exceed chunk_size.
+const TT_MAX_CHUNK = 64 * 1024 * 1024;
+
+interface IVideoInit { publishId: string; uploadUrl: string; chunkSize: number; totalChunkCount: number; }
+
+// `total_chunk_count` is video_size / chunk_size rounded DOWN — not up. Rounding
+// up leaves a final chunk TikTok never expects and the upload fails with 416.
+function planChunks(size: number): { chunkSize: number; totalChunkCount: number } {
+  if (size <= TT_MAX_CHUNK) return { chunkSize: size, totalChunkCount: 1 };
+  return { chunkSize: TT_MAX_CHUNK, totalChunkCount: Math.floor(size / TT_MAX_CHUNK) };
+}
+
+async function probeMedia(url: string): Promise<{ size: number; contentType: string }> {
+  const res = await fetch(url, { method: 'HEAD', cache: 'no-store' });
+  if (!res.ok) throw new Error(`Could not read video headers (${res.status}) from ${url}`);
+  const size = Number(res.headers.get('content-length') ?? 0);
+  if (!size) throw new Error('Video host did not report a Content-Length; FILE_UPLOAD needs the exact size.');
+  return { size, contentType: res.headers.get('content-type') ?? 'video/mp4' };
+}
+
+// Streams the video to TikTok chunk by chunk, pulling each range from the source
+// only as it is needed so we never hold the whole file in memory.
+async function uploadVideoChunks(init: IVideoInit, url: string, size: number, contentType: string): Promise<void> {
+  const { uploadUrl, chunkSize, totalChunkCount } = init;
+  for (let i = 0; i < totalChunkCount; i++) {
+    const start = i * chunkSize;
+    const end = i === totalChunkCount - 1 ? size - 1 : start + chunkSize - 1;
+    const part = await fetch(url, { headers: { Range: `bytes=${start}-${end}` }, cache: 'no-store' });
+    if (!part.ok) throw new Error(`Failed to read bytes ${start}-${end} of the video: ${part.status}`);
+    const body = Buffer.from(await part.arrayBuffer());
+    const res = await fetch(uploadUrl, {
+      method: 'PUT',
+      headers: { 'Content-Type': contentType, 'Content-Range': `bytes ${start}-${end}/${size}` },
+      body,
+    });
+    // 206 = chunk accepted, keep going. 201 = final chunk received, publishing starts.
+    if (res.status !== 206 && res.status !== 201) {
+      throw new Error(`TikTok chunk ${i + 1}/${totalChunkCount} upload failed: ${res.status} ${await res.text()}`);
+    }
+  }
+}
+
 // TikTok issues sandbox credentials with an "sb" prefix on the client key.
 function isSandboxClient(): boolean {
   return TIKTOK.clientKey.startsWith('sb');
@@ -127,12 +171,20 @@ export const tiktokConnector: SocialConnector = {
     if (isVideo) {
       const videoUrl = input.videoUrl;
       if (!videoUrl) throw new Error('TikTok video publish requires a public video URL.');
-      const init = await ttPost<{ data?: { publish_id?: string } }>(
+      // FILE_UPLOAD rather than PULL_FROM_URL: we send the bytes ourselves, so the
+      // host never needs domain verification and large files don't have to stream
+      // back out through our own /api/media proxy.
+      const { size, contentType } = await probeMedia(videoUrl);
+      const { chunkSize, totalChunkCount } = planChunks(size);
+      const init = await ttPost<{ data?: { publish_id?: string; upload_url?: string } }>(
         account.accessToken, '/post/publish/video/init/',
         { post_info: { title: input.message ?? '', privacy_level: privacyLevel },
-          source_info: { source: 'PULL_FROM_URL', video_url: toVerifiedMediaUrl(videoUrl) } },
+          source_info: { source: 'FILE_UPLOAD', video_size: size, chunk_size: chunkSize, total_chunk_count: totalChunkCount } },
       );
       publishId = init.data?.publish_id ?? '';
+      const uploadUrl = init.data?.upload_url;
+      if (!uploadUrl) throw new Error('TikTok did not return an upload_url for the video.');
+      await uploadVideoChunks({ publishId, uploadUrl, chunkSize, totalChunkCount }, videoUrl, size, contentType);
     } else {
       const photos = input.imageUrls ?? (input.imageUrl ? [input.imageUrl] : []);
       if (!photos.length) throw new Error('TikTok photo publish requires at least one public image URL.');

@@ -12,8 +12,22 @@ import { list } from '@vercel/blob';
 // The key is resolved via the Blob API rather than by rebuilding the public
 // hostname, so a caller can only ever reach objects inside our own store — this
 // is deliberately not a general-purpose URL proxy.
+// TikTok's URL-prefix verification wants the signature file served from the
+// prefix itself, not just the domain root — so /api/media/<file> must answer it
+// rather than trying to resolve it as a blob key.
+const TIKTOK_VERIFY_FILE = 'tiktok-developers-site-verification.txt';
+
 export async function GET(_req: NextRequest, { params }: { params: { key: string[] } }) {
   const pathname = params.key.map(decodeURIComponent).join('/');
+
+  if (pathname === TIKTOK_VERIFY_FILE) {
+    const token = process.env.TIKTOK_SITE_VERIFICATION ?? '';
+    return new NextResponse(token ? `${token}\n` : '', {
+      status: token ? 200 : 404,
+      headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+    });
+  }
+
   if (!process.env.BLOB_READ_WRITE_TOKEN) {
     return NextResponse.json({ error: 'Blob storage is not configured.' }, { status: 500 });
   }
