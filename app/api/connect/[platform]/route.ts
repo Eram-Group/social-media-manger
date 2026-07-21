@@ -44,7 +44,10 @@ export async function GET(req: NextRequest, { params }: { params: { platform: st
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax' as const,
     path: '/',
-    maxAge: 600,
+    // 30 min, not 10: these flows can involve logging into the provider and
+    // picking an organization/page, and an expired cookie surfaces as the
+    // unhelpful "Invalid or missing OAuth state".
+    maxAge: 1800,
   };
   const res = NextResponse.redirect(authUrl);
   res.cookies.set(`oauth_state_${platform}`, state, cookieOpts);
