@@ -2,12 +2,19 @@ import {
   ConnectedAccount, PublishInput, PublishResult, SocialConnector,
 } from './types';
 import { SNAPCHAT, assertSnapchatConfigured, redirectUri } from '@/server/env';
-import { SNAP_API, SNAP_OAUTH, SNAP_API_VERSION, SNAPCHAT_SCOPES } from './snapchat.config';
+import { SNAP_API, SNAP_OAUTH, SNAP_API_VERSION, SNAP_PROFILE_API, SNAPCHAT_SCOPES } from './snapchat.config';
 import { upsertAccounts } from '@/server/store';
 
 // ── Request helpers ──────────────────────────────────────────────────────────
 function authHeaders(token: string): Record<string, string> {
   return { Authorization: `Bearer ${token}` };
+}
+
+// Public Profile API calls go to businessapi.snapchat.com, not the ads host.
+export async function snapProfileGet<T>(token: string, path: string): Promise<T> {
+  const res = await fetch(`${SNAP_PROFILE_API}/${SNAP_API_VERSION}${path}`, { headers: authHeaders(token), cache: 'no-store' });
+  if (!res.ok) throw new Error(`Snapchat GET ${path} failed: ${res.status} ${await res.text()}`);
+  return res.json() as Promise<T>;
 }
 
 export async function snapGet<T>(token: string, path: string): Promise<T> {
@@ -80,20 +87,31 @@ export async function ensureFreshToken(account: ConnectedAccount): Promise<Conne
 // VERIFY endpoint: list the orgs the user can access, then the public profiles under them.
 export async function listPublicProfiles(token: string): Promise<{ id: string; name: string; orgId: string }[]> {
   const out: { id: string; name: string; orgId: string }[] = [];
-  try {
-    const orgs = await snapGet<{ organizations: { organization: { id: string; name?: string } }[] }>(token, '/me/organizations');
-    for (const o of orgs.organizations ?? []) {
-      const orgId = o.organization.id;
-      try {
-        const pp = await snapGet<{ public_profiles: { public_profile: { id: string; display_name?: string } }[] }>(
-          token, `/organizations/${orgId}/public_profiles`,
-        );
-        for (const p of pp.public_profiles ?? []) {
-          out.push({ id: p.public_profile.id, name: p.public_profile.display_name ?? `Profile ${p.public_profile.id}`, orgId });
-        }
-      } catch { /* org may have no public profiles */ }
+  // Deliberately NOT swallowing this: a failure here used to surface as a bare
+  // `no_profiles`, which is indistinguishable from "this org genuinely has no
+  // public profiles" and hides the real Snapchat error (scope, permission, path).
+  const orgs = await snapProfileGet<{ organizations: { organization: { id: string; name?: string } }[] }>(token, '/me/organizations');
+  const orgList = orgs.organizations ?? [];
+  if (!orgList.length) {
+    throw new Error('Snapchat returned no organizations for this login. The account must belong to a Snapchat Business organization.');
+  }
+  const failures: string[] = [];
+  for (const o of orgList) {
+    const orgId = o.organization.id;
+    try {
+      const pp = await snapProfileGet<{ public_profiles: { public_profile: { id: string; display_name?: string } }[] }>(
+        token, `/organizations/${orgId}/public_profiles`,
+      );
+      for (const p of pp.public_profiles ?? []) {
+        out.push({ id: p.public_profile.id, name: p.public_profile.display_name ?? `Profile ${p.public_profile.id}`, orgId });
+      }
+    } catch (e) {
+      failures.push(`org ${orgId}: ${(e as Error).message}`);
     }
-  } catch { /* VERIFY: discovery path may differ; surfaced as no_profiles */ }
+  }
+  if (!out.length && failures.length) {
+    throw new Error(`Snapchat public-profile lookup failed — ${failures.join(' | ')}`);
+  }
   return out;
 }
 
