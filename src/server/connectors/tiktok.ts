@@ -53,11 +53,21 @@ export async function ensureFreshToken(account: ConnectedAccount): Promise<Conne
   return updated;
 }
 
+// TikTok issues sandbox credentials with an "sb" prefix on the client key.
+function isSandboxClient(): boolean {
+  return TIKTOK.clientKey.startsWith('sb');
+}
+
 async function getCreatorInfo(account: ConnectedAccount): Promise<{ privacyLevel: string }> {
   const r = await ttPost<{ data?: { privacy_level_options?: string[] } }>(
     account.accessToken, '/post/publish/creator_info/query/', {},
   );
   const opts = r.data?.privacy_level_options ?? [];
+  // Sandbox client keys are prefixed "sb". Such clients are unaudited, and TikTok
+  // rejects any non-SELF_ONLY post with `unaudited_client_can_only_post_to_private_accounts`
+  // — even when creator_info still advertises PUBLIC_TO_EVERYONE for a public
+  // account. Ask only for what can actually be granted.
+  if (isSandboxClient()) return { privacyLevel: 'SELF_ONLY' };
   // Prefer PUBLIC when allowed; else the first allowed (SELF_ONLY pre-audit).
   const privacyLevel = opts.includes('PUBLIC_TO_EVERYONE') ? 'PUBLIC_TO_EVERYONE' : (opts[0] ?? 'SELF_ONLY');
   return { privacyLevel };
