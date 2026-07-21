@@ -38,7 +38,16 @@ export const instagramConnector: SocialConnector = {
   async exchangeCode(code: string): Promise<ConnectedAccount[]> {
     const userToken = await codeToUserToken(code, redirectUri('instagram'));
     const pages = await discoverPages(userToken);
+    // Distinguish "you granted no Pages" from "Pages exist but none has an IG
+    // Business account linked" — both used to surface as the same no_ig_account.
+    if (!pages.length) {
+      throw new Error(
+        'No Facebook Pages were granted to this app. During login, Meta asks which Pages to allow — '
+        + 'select the Page your Instagram account is linked to, then retry.',
+      );
+    }
     const accounts: ConnectedAccount[] = [];
+    const checked: string[] = [];
     for (const page of pages) {
       // Find the IG Business account linked to this Page.
       const info = await graphGet<{ instagram_business_account?: { id: string; username?: string; followers_count?: number } }>(
@@ -46,7 +55,7 @@ export const instagramConnector: SocialConnector = {
         { access_token: page.access_token, fields: 'instagram_business_account{id,username,followers_count}' },
       );
       const ig = info.instagram_business_account;
-      if (!ig) continue;
+      if (!ig) { checked.push(page.name || page.id); continue; }
       accounts.push({
         platform: 'instagram',
         accountId: ig.id,
@@ -56,6 +65,13 @@ export const instagramConnector: SocialConnector = {
         followers: ig.followers_count,
         meta: { pageId: page.id },
       });
+    }
+    if (!accounts.length) {
+      throw new Error(
+        `No Instagram Business account is linked to the granted Page(s): ${checked.join(', ')}. `
+        + 'The Instagram account must be a Business or Creator account AND linked to the Page '
+        + '(Instagram app -> Settings -> Account type and tools).',
+      );
     }
     return accounts;
   },
