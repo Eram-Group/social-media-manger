@@ -7,22 +7,19 @@ export const SNAP_API_VERSION = 'v1';
 // https://developers.snap.com/api/marketing-api/Public-Profile-API/GetStarted
 export const SNAP_PROFILE_API = 'https://businessapi.snapchat.com';
 
-// Snapchat requires a SPACE-separated scope list — a comma is not a separator,
-// it becomes part of the scope name, and Snapchat then rejects the whole
-// authorize request ("Failed to load authorization data"). Earlier attempts to
-// add snapchat-profile-api used a comma, so that failure was read as "the app
-// isn't allowlisted" when it may only ever have been the separator.
-// Accept either form in env and normalise, so the distinction can't bite again.
+// Scopes are SPACE-separated — a comma is not a separator, it becomes part of
+// the scope name and Snapchat then rejects the whole authorize request with
+// "Failed to load authorization data". Earlier attempts to add
+// snapchat-profile-api used a comma, so that failure was read as "the app isn't
+// allowlisted" when it may only ever have been the separator.
 // https://developers.snap.com/api/marketing-api/Ads-API/authentication
-export function normalizeScopes(raw: string): string {
-  return raw.split(/[\s,]+/).filter(Boolean).join(' ');
-}
-
-// Reading the Public Profile API needs `snapchat-profile-api` (the marketing
-// scope alone gets 403). That API is allowlist-gated, so it stays opt-in:
-//   SNAPCHAT_SCOPES="snapchat-marketing-api snapchat-profile-api"
-export const SNAPCHAT_SCOPES = normalizeScopes(
-  process.env.SNAPCHAT_SCOPES || 'snapchat-marketing-api',
-);
+//
+// `snapchat-profile-api` is required to read the Public Profile API — with the
+// marketing scope alone, /organizations/{id}/public_profiles returns 403.
+// Hardcoded rather than env-driven so it applies everywhere without extra
+// config. Note this API is allowlist-gated: if Snap has not allowlisted the
+// client ID, requesting the scope breaks the authorize page outright instead of
+// degrading, and backing it out needs a redeploy.
+export const SNAPCHAT_SCOPES = 'snapchat-marketing-api snapchat-profile-api';
 
 export type TSnapContentType = 'STORY' | 'SAVED_STORY' | 'SPOTLIGHT';
