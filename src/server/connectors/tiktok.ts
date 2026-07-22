@@ -1,6 +1,8 @@
 import { ConnectedAccount, PublishInput, PublishResult, SocialConnector } from './types';
 import { APP_BASE_URL, TIKTOK, assertTiktokConfigured, redirectUri } from '@/server/env';
-import { TIKTOK_API, TIKTOK_AUTH, TIKTOK_TOKEN, TIKTOK_SCOPES } from './tiktok.config';
+import {
+  TIKTOK_API, TIKTOK_AUTH, TIKTOK_TOKEN, TIKTOK_SCOPES, POLL_ATTEMPTS, POLL_INTERVAL_MS,
+} from './tiktok.config';
 import { upsertAccounts } from '@/server/store';
 
 function authHeaders(token: string): Record<string, string> {
@@ -205,15 +207,36 @@ export const tiktokConnector: SocialConnector = {
       publishId = init.data?.publish_id ?? '';
     }
 
-    // Poll status until complete (bounded).
-    for (let i = 0; i < 30 && publishId; i++) {
-      const st = await ttPost<{ data?: { status?: string } }>(
+    // No publish_id means the post was never created — returning it as a success
+    // would surface an empty remoteId to the caller as a published post.
+    if (!publishId) throw new Error('TikTok did not return a publish_id — the post was not created.');
+
+    // Poll until TikTok reports a terminal state. Every exit from this loop must
+    // be explicit: falling out of it used to return success, so a job that was
+    // still processing (or stuck) was persisted to the ledger and shown to the
+    // user as published. Only PUBLISH_COMPLETE counts as published.
+    let status: string | undefined;
+    for (let i = 0; i < POLL_ATTEMPTS; i++) {
+      const st = await ttPost<{ data?: { status?: string; fail_reason?: string } }>(
         account.accessToken, '/post/publish/status/fetch/', { publish_id: publishId },
       );
-      const status = st.data?.status;
+      status = st.data?.status;
       if (status === 'PUBLISH_COMPLETE') break;
-      if (status === 'FAILED') throw new Error('TikTok failed to publish the post.');
-      await new Promise((r) => setTimeout(r, 3000));
+      if (status === 'FAILED') {
+        const why = st.data?.fail_reason;
+        throw new Error(`TikTok failed to publish the post${why ? `: ${why}` : '.'}`);
+      }
+      await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
+    }
+    if (status !== 'PUBLISH_COMPLETE') {
+      // Still in flight, not confirmed. TikTok may yet finish it, so the id is
+      // included — the post must be checked on TikTok before retrying, or the
+      // retry publishes twice.
+      throw new Error(
+        `TikTok did not confirm publishing within ${(POLL_ATTEMPTS * POLL_INTERVAL_MS) / 1000}s `
+        + `(last status: ${status ?? 'unknown'}). It may still complete — check TikTok before retrying. `
+        + `publish_id: ${publishId}`,
+      );
     }
     return { remoteId: publishId, raw: { publishId } };
   },
