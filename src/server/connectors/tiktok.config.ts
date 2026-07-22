@@ -25,4 +25,11 @@ export const TIKTOK_SCOPES = [
   'video.publish',
 ].join(',');
 
+// Publish-status polling budget. The whole publish call has to finish inside the
+// serverless function's maxDuration, so this ceiling must stay well under it —
+// the previous 30 x 3s = 90s could not complete on Vercel's default Node limit
+// and the request was killed mid-poll. Raise `maxDuration` before raising these.
+export const POLL_ATTEMPTS = 8;
+export const POLL_INTERVAL_MS = 3000;
+
 export type TTikTokPostType = 'VIDEO' | 'PHOTO';
